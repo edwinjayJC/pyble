@@ -118,9 +118,19 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
 
     try {
       final updatedTable = await repository.lockTable(currentData.table.id);
+
+      // Calculate total owed for each participant based on their claims
+      final updatedParticipants = currentData.participants.map((participant) {
+        double totalOwed = 0.0;
+        for (final item in currentData.items) {
+          totalOwed += item.getShareForUser(participant.userId);
+        }
+        return participant.copyWith(totalOwed: totalOwed);
+      }).toList();
+
       state = AsyncValue.data(TableData(
         table: updatedTable,
-        participants: currentData.participants,
+        participants: updatedParticipants,
         items: currentData.items,
         subTotal: currentData.subTotal,
         tax: currentData.tax,
@@ -128,6 +138,7 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
       ));
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 

@@ -13,6 +13,11 @@ import '../../features/table/screens/host_invite_screen.dart';
 import '../../features/table/screens/join_table_screen.dart';
 import '../../features/table/screens/claim_screen.dart';
 import '../../features/ocr/screens/scan_bill_screen.dart';
+import '../../features/payments/screens/host_dashboard_screen.dart';
+import '../../features/payments/screens/participant_payment_screen.dart';
+import '../../features/payments/screens/payment_webview_screen.dart';
+import '../../features/payments/screens/payment_processing_screen.dart';
+import '../../features/payments/models/payment_record.dart';
 
 // Placeholder screens - will be replaced with actual implementations
 class OnboardingScreen extends StatelessWidget {
@@ -337,6 +342,47 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final tableId = state.pathParameters['tableId']!;
           return ClaimScreen(tableId: tableId);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.hostDashboard,
+        name: RouteNames.hostDashboard,
+        builder: (context, state) {
+          final tableId = state.pathParameters['tableId']!;
+          return HostDashboardScreen(tableId: tableId);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.participantPayment,
+        name: RouteNames.participantPayment,
+        builder: (context, state) {
+          final tableId = state.pathParameters['tableId']!;
+          return ParticipantPaymentScreen(tableId: tableId);
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.paymentWebview,
+        name: RouteNames.paymentWebview,
+        builder: (context, state) {
+          final tableId = state.pathParameters['tableId']!;
+          final paymentResponse = state.extra as InitiatePaymentResponse;
+          return PaymentWebviewScreen(
+            tableId: tableId,
+            paymentResponse: paymentResponse,
+          );
+        },
+      ),
+      GoRoute(
+        path: RoutePaths.paymentProcessing,
+        name: RouteNames.paymentProcessing,
+        builder: (context, state) {
+          final tableId = state.pathParameters['tableId']!;
+          final extra = state.extra as Map<String, dynamic>?;
+          final paymentId = extra?['paymentId'] as String? ?? '';
+          return PaymentProcessingScreen(
+            tableId: tableId,
+            paymentId: paymentId,
+          );
         },
       ),
     ],

@@ -10,6 +10,9 @@ class RouteNames {
   static const String inviteParticipants = 'invite-participants';
   static const String joinTable = 'join-table';
   static const String claimTable = 'claim-table';
+  static const String hostDashboard = 'host-dashboard';
+  static const String participantPayment = 'participant-payment';
+  static const String paymentWebview = 'payment-webview';
   static const String paymentProcessing = 'payment-processing';
   static const String history = 'history';
 }
@@ -26,6 +29,9 @@ class RoutePaths {
   static const String inviteParticipants = '/table/:tableId/invite';
   static const String joinTable = '/join';
   static const String claimTable = '/table/:tableId/claim';
+  static const String hostDashboard = '/table/:tableId/dashboard';
+  static const String participantPayment = '/table/:tableId/payment';
+  static const String paymentWebview = '/payment-webview/:tableId';
   static const String paymentProcessing = '/payment-processing/:tableId';
   static const String history = '/history';
 }

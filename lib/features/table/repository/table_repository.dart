@@ -42,6 +42,20 @@ class TableData {
     );
   }
 
+  factory TableData.empty() {
+    return TableData(
+      table: TableSession(
+        id: '',
+        code: '',
+        hostUserId: '',
+        status: TableStatus.claiming,
+        createdAt: DateTime.now(),
+      ),
+      participants: [],
+      items: [],
+    );
+  }
+
   TableData copyWith({
     TableSession? table,
     List<Participant>? participants,

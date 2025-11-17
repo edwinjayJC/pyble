@@ -33,6 +33,18 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     final currentUser = ref.watch(currentUserProvider);
     final isHost = ref.watch(isHostProvider);
 
+    // Listen for status changes and navigate to payment screens
+    ref.listen<TableStatus?>(tableStatusProvider, (previous, next) {
+      if (previous == TableStatus.claiming && next == TableStatus.collecting) {
+        // Table was locked, navigate to appropriate screen
+        if (isHost) {
+          context.go('/table/${widget.tableId}/dashboard');
+        } else {
+          context.go('/table/${widget.tableId}/payment');
+        }
+      }
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Claim Items'),
@@ -53,6 +65,42 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         data: (tableData) {
           if (tableData == null) {
             return const Center(child: Text('No table data'));
+          }
+
+          // Redirect if already in collecting status
+          if (tableData.table.status == TableStatus.collecting) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (isHost) {
+                context.go('/table/${widget.tableId}/dashboard');
+              } else {
+                context.go('/table/${widget.tableId}/payment');
+              }
+            });
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // Redirect if settled
+          if (tableData.table.status == TableStatus.settled) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.check_circle, size: 64, color: AppColors.lushGreen),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Table Settled',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('This table has been settled.'),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => context.go('/home'),
+                    child: const Text('Back to Home'),
+                  ),
+                ],
+              ),
+            );
           }
 
           return Column(

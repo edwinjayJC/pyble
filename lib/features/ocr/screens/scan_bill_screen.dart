@@ -30,6 +30,15 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
   final _formKey = GlobalKey<FormState>();
 
   @override
+  void initState() {
+    super.initState();
+    // Load table data when screen opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+    });
+  }
+
+  @override
   void dispose() {
     _descriptionController.dispose();
     _priceController.dispose();
@@ -316,12 +325,17 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tableData = ref.watch(currentTableProvider).valueOrNull;
+    final tableDataAsync = ref.watch(currentTableProvider);
+    final tableData = tableDataAsync.valueOrNull;
     final items = tableData?.items ?? [];
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Scan Bill'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/home'),
+        ),
         actions: [
           if (items.isNotEmpty)
             TextButton(
@@ -330,7 +344,24 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
             ),
         ],
       ),
-      body: SafeArea(
+      body: tableDataAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: AppColors.warmSpice),
+              const SizedBox(height: 16),
+              Text('Error: $error'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.read(currentTableProvider.notifier).loadTable(widget.tableId),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (_) => SafeArea(
         child: Column(
           children: [
             if (!_scanComplete && items.isEmpty) ...[
@@ -468,6 +499,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
             ],
           ],
         ),
+      ),
       ),
     );
   }

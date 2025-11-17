@@ -33,12 +33,14 @@ class TableSession {
 
   factory TableSession.fromJson(Map<String, dynamic> json) {
     return TableSession(
-      id: json['id'] as String,
-      code: json['tableCode'] as String? ?? json['code'] as String,
-      hostUserId: json['hostUserId'] as String,
-      status: TableStatus.fromString(json['status'] as String),
+      id: json['id'] as String? ?? '',
+      code: json['tableCode'] as String? ?? json['code'] as String? ?? '',
+      hostUserId: json['hostUserId'] as String? ?? '',
+      status: TableStatus.fromString(json['status'] as String? ?? 'claiming'),
       title: json['title'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now(),
       closedAt: json['closedAt'] != null
           ? DateTime.parse(json['closedAt'] as String)
           : null,

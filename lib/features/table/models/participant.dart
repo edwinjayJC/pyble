@@ -50,10 +50,10 @@ class Participant {
 
   factory Participant.fromJson(Map<String, dynamic> json) {
     return Participant(
-      id: json['id'] as String? ?? json['participantId'] as String,
+      id: json['id'] as String? ?? json['participantId'] as String? ?? json['userId'] as String? ?? '',
       tableId: json['tableId'] as String? ?? '',
-      userId: json['userId'] as String,
-      displayName: json['displayName'] as String,
+      userId: json['userId'] as String? ?? '',
+      displayName: json['displayName'] as String? ?? 'Unknown',
       paymentStatus: PaymentStatus.fromString(
         json['status'] as String? ?? json['paymentStatus'] as String? ?? 'owing',
       ),
