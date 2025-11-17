@@ -7,6 +7,7 @@
 * `claude.md` - UX + flow authority.
 * `system-design.md`
 * `database-schema.md` - **The source of truth for our `SplitTable` document.**
+* `backend-api.md` - **The source of truth for our api calls.**
 
 ---
 

@@ -7,6 +7,7 @@
 * **Master Spec:** `claude.md`
 * **Design System:** `system-design.md`
 * **Database Schema:** `database-schema.md`
+* **API Schema:** `backend-api.md` - The source of truth for our api calls.
 
 ---
 
