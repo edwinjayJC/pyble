@@ -105,6 +105,10 @@ flutter:
       fonts:
         - asset: assets/fonts/Quicksand-Bold.ttf
           weight: 900
+    - family: Qilka-Bold
+      fonts:
+        - asset: assets/fonts/Qilka-Bold.otf
+          weight: 900
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package

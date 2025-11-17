@@ -27,21 +27,21 @@ class AuthScreen extends ConsumerWidget {
                     children: [
                       const SizedBox(height: 48),
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20.0),
+                        padding: const EdgeInsets.symmetric(vertical: 18.0),
                         child: Center(
                             child: Image.asset(
                               'assets/images/pie.png',
                               height: 120,
                             )),
                       ),
-                      const SizedBox(height: 16),
                       Text(
                         'pyble',
                         style:
                             Theme.of(context).textTheme.displayLarge?.copyWith(
                                   color: AppColors.deepBerry,
+                                  fontSize: 50,
                                   fontWeight: FontWeight.bold,
-                                  fontFamily: "QuicksandBold"
+                                  fontFamily: "Qilka-Bold"
                                 ),
                       ),
                       const SizedBox(height: 8),
