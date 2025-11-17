@@ -26,18 +26,22 @@ class AuthScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       const SizedBox(height: 48),
-                      const Icon(
-                        Icons.restaurant_menu,
-                        size: 80,
-                        color: AppColors.deepBerry,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 20.0),
+                        child: Center(
+                            child: Image.asset(
+                              'assets/images/pie.png',
+                              height: 120,
+                            )),
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Pyble',
+                        'pyble',
                         style:
                             Theme.of(context).textTheme.displayLarge?.copyWith(
                                   color: AppColors.deepBerry,
                                   fontWeight: FontWeight.bold,
+                                  fontFamily: "QuicksandBold"
                                 ),
                       ),
                       const SizedBox(height: 8),
