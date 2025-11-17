@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../providers/table_provider.dart';
+import '../models/table_session.dart';
 
 class CreateTableScreen extends ConsumerStatefulWidget {
   const CreateTableScreen({super.key});
@@ -29,6 +30,19 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     setState(() => _isLoading = true);
 
     try {
+      // Check for active tables first
+      final repository = ref.read(tableRepositoryProvider);
+      final activeTable = await repository.getActiveTable();
+
+      if (activeTable != null && mounted) {
+        // Show dialog to handle existing active table
+        final shouldContinue = await _showActiveTableDialog(activeTable);
+        if (!shouldContinue) {
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
       await ref.read(currentTableProvider.notifier).createTable(
             title: _titleController.text.isNotEmpty
                 ? _titleController.text
@@ -54,6 +68,36 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<bool> _showActiveTableDialog(TableSession activeTable) async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Active Table Found'),
+        content: Text(
+          'You already have an active table (${activeTable.code}). '
+          'What would you like to do?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'cancel'),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'resume'),
+            child: const Text('Resume Table'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'resume' && mounted) {
+      // Navigate to the existing table
+      context.go('/table/${activeTable.id}/claim');
+    }
+
+    return false; // Don't continue with creation
   }
 
   @override

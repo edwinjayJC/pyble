@@ -234,6 +234,41 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     }
   }
 
+  Future<void> splitItemAmongAllDiners(String itemId) async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    // Get all participant user IDs
+    final allUserIds = currentData.participants.map((p) => p.userId).toList();
+
+    if (allUserIds.isEmpty) return;
+
+    await splitItemAcrossUsers(itemId, allUserIds);
+  }
+
+  Future<void> settleTable() async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      final updatedTable = await repository.settleTable(currentData.table.id);
+      state = AsyncValue.data(TableData(
+        table: updatedTable,
+        participants: currentData.participants,
+        items: currentData.items,
+        subTotal: currentData.subTotal,
+        tax: currentData.tax,
+        tip: currentData.tip,
+      ));
+      stopPolling(); // Stop polling once table is settled
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
   void _startPolling(String tableId) {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(

@@ -231,9 +231,14 @@ Use **GoRouter** with named routes:
 Include:
 
 * Route guards for authenticated routes.
-* Deep-link handling for `upeven://join?code=ABC123` → join table flow.
-
+* Deep-link handling for `pyble://join?code=ABC123` → join table flow.
 ---
+
+**References:**
+* **Master Spec:** `claude.md`
+* **Design System:** `system-design.md`
+* **Database Schema:** `database-schema.md`
+* **API Schema:** `backend-api.md`
 
 ## 6. Phase 1: Setup & Scan (Host Flow)
 

@@ -1,122 +1,221 @@
-# Phase 1 Plan: Authentication, Onboarding & Core Setup
+# Phase 1: Setup & Scan (Host Flow)
 
-**Objective:** Build the foundational shell of the Pyble app, allowing users to sign up, log in, and view a basic home screen. This phase focuses on user identity, session management, and core UI setup.
+**Objective:** Enable the Host to create a table, scan/add bill items, and invite participants. This phase focuses on the Host's initial setup flow after they've already paid the restaurant bill. Also includes onboarding, authentication, and terms acceptance.
 
 **References:**
-* **Master Spec:** `claude.md`
+* **Master Spec:** `CLAUDE.md` (Sections 5.1 & 6)
 * **Design System:** `system-design.md`
-* **Database Schema:** `database-schema.md`
-* **API Schema:** `backend-api.md`
+* **API Schema:** `backend-api.md` - The source of truth for our api calls.
+
 
 ---
 
 ## 1. High-Level Goals
 
-1. **Initialize App:** Set up the Flutter project with Supabase, Riverpod, and GoRouter.
-2. **Implement Auth Flow:** Create all screens for onboarding, sign-up, and sign-in.
-3. **Manage Auth State:** Use Riverpod to manage the user's Supabase session and fetch their Cosmos DB profile.
-4. **Create User Profiles:** On sign-up, call the Azure Functions `/profiles` endpoint to create the user's profile document in Cosmos DB.
-5. **Build Core UI:** Implement the Home Screen skeleton and a functional Drawer with account management.
+1. **Onboarding:** Show tutorial on first launch, persist completion status.
+2. **Authentication:** Supabase Auth via `supabase_auth_ui` package.
+3. **Terms Acceptance:** Require T&Cs acceptance before app use.
+4. **Create Table:** Host creates a new `TableSession` with status `claiming`.
+5. **Active Table Check:** Prevent creating multiple active tables.
+6. **Scan Bill (AI Path):** Send image to API for OCR parsing.
+7. **Manual Entry (Escape Hatch):** Allow manual item entry if scan fails.
+8. **Invite Participants:** Display QR code, 6-char code, and share link.
 
 ---
 
 ## 2. Feature Breakdown
 
-### 2.1 Core App Initialization (main.dart)
+### 2.0 Onboarding & Authentication Flow
 
-* Initialize `Supabase` with the project URL and anon key.
-* Wrap the app in a `ProviderScope` for Riverpod.
-* Set up `MaterialApp.router` using the `GoRouter` configuration.
-* Apply the `lightTheme` (using `Snow`, `Dark Fig`, etc.) from the `system-design.md` to the `theme` property.
+#### 2.0.1 Tutorial Screen (`/onboarding`)
 
-### 2.2 Routing (GoRouter)
+* **First Launch Check:**
+  * Check `shared_preferences` for `tutorialSeen` key
+  * If false or not set, show onboarding
+* **UI Components:**
+  * Welcome message: "Welcome to Pyble"
+  * App overview/benefits (can be carousel or single page)
+  * "Get Started" button
+* **On Complete:**
+  * Set `tutorialSeen = true` in `shared_preferences`
+  * Navigate to `/auth`
 
-* Implement the following initial routes:
-    * `/onboarding` (for new users)
-    * `/auth` (for sign-in / sign-up)
-    * `/home` (the main app screen after login)
-    * `/terms` (for accepting T&Cs)
-    * `/settings` (stubbed page for account details)
-* Implement an **Auth Redirect Guard** (`listen`ing to the Riverpod `userProfileProvider`):
-    * **Case 1 (Logged Out):** If auth state is `null`, all routes redirect to `/auth` (except `/onboarding`).
-    * **Case 2 (Logged In, T&Cs NOT Accepted):** If auth state is `valid` but `UserProfile.hasAcceptedTerms == false`, all routes **must** redirect to `/terms`.
-    * **Case 3 (Logged In, T&Cs Accepted):** If auth state is `valid` and `UserProfile.hasAcceptedTerms == true`, redirect `/auth` or `/onboarding` to `/home`.
+#### 2.0.2 Authentication Screen (`/auth`)
 
-### 2.3 Auth State Management (Riverpod)
+* **Using `supabase_auth_ui` Package:**
+  * Pre-built auth UI components
+  * Support for email/password
+  * Support for OAuth providers (Google, Apple, etc.)
+* **Session Persistence:**
+  * Supabase handles session restore automatically
+  * Check `supabase.auth.currentSession` on app start
+* **On Success:**
+  * Load `UserProfile` from API
+  * Check `hasAcceptedTerms`
+  * Navigate accordingly
 
-* Create a global `authStreamProvider` that listens to `supabase.auth.onAuthStateChange` and returns the `User?`.
-* Create a global `userProfileProvider` (e.g., `AsyncNotifierProvider`) that:
-    1. `watch`es the `authStreamProvider`.
-    2. If the auth state is `null`, it returns `AsyncValue.data(null)`.
-    3. If the auth state is `valid`, it calls the Azure `/profiles/me` endpoint to fetch the user's profile from Cosmos DB.
-    4. This single provider will manage the app's `UserProfile?` state.
-* The `GoRouter` redirect guard will `listen` to this `userProfileProvider`.
+#### 2.0.3 Terms & Conditions Screen (`/terms`)
 
-### 2.4 Onboarding & T&Cs Flow
+* **Trigger:** User authenticated but `hasAcceptedTerms == false`
+* **UI Components:**
+  * Scrollable terms text
+  * "Accept & Continue" button
+* **API Call:** Update `UserProfile.hasAcceptedTerms` to true
+* **On Accept:** Navigate to `/home`
 
-* **Onboarding Screen (`/onboarding`):**
-    * Show only if `tutorialSeen` (stored in `shared_preferences`) is `false`.
-    * Implement the multi-screen swipe tutorial.
-    * Must have a **"Skip tutorial"** button.
-    * On completion or skip, set `tutorialSeen = true` in `shared_preferences` and navigate to `/auth`.
-* **Terms & Conditions Screen (`/terms`):**
-    * This screen will be **forced** by the `GoRouter` guard on first login.
-    * Must have a scrollable T&Cs text.
-    * Must have a checkbox "I accept the Terms & Conditions".
-    * The "Continue" button (`Deep Berry` primary) is disabled until the box is checked.
-    * On tap, call an Azure endpoint (`/profiles/me/accept-terms`) to set `hasAcceptedTerms = true` in Cosmos DB. This will cause the `userProfileProvider` to refetch, and the `GoRouter` guard will then automatically redirect to `/home`.
+#### 2.0.4 Session Restore Flow
 
-### 2.5 Authentication Screens (`/auth`)
+On app start:
+1. Check `tutorialSeen` from `shared_preferences`
+2. If false → `/onboarding`
+3. If true, check `supabase.auth.currentSession`
+4. If no session → `/auth`
+5. If session exists, load `UserProfile` from API
+6. If `!hasAcceptedTerms` → `/terms`
+7. Otherwise → `/home`
 
-* **UI Implementation:**
-    * Follow the `system-design.md` for all components.
-    * **Text Fields:** Use the specified style (`Dark Fig` text, `Snow` background, `Deep Berry` focus border).
-    * **Buttons:**
-        * "Continue with Google" (`SecondaryButton` style).
-        * "Continue with Microsoft" (`SecondaryButton` style).
-        * "Sign In / Sign Up" (`PrimaryButton` style, `Deep Berry`).
-* **Auth Logic:**
-    * Implement `supabase.auth.signInWithPassword` and `supabase.auth.signUp`.
-    * Implement `supabase.auth.signInWithOAuth` for Google and Microsoft.
-    * Display error messages (e.g., "Invalid password") from Supabase in a `Snackbar` or inline text.
-* **Profile Creation (On Sign Up):**
-    * After a successful `signUp`, call the Azure `/profiles` endpoint to create the user's profile document in Cosmos DB.
-    * The payload should include the Supabase `auth.users.id`, email, and display name.
+### 2.1 Create Table Screen (`/create-table`)
 
-### 2.6 Home Screen & Drawer Skeleton
+* **Trigger:** Home screen "Create Table" button.
+* **Pre-Check:**
+  * Call `GET /tables/active` to check for existing active tables.
+  * If active table exists, show dialog: "Resume existing table" or "Cancel".
+* **API Call:** `POST /tables` with optional title.
+* **Response:** API returns `{ table: TableSession, signalRNegotiationPayload: {...} }`.
+* **Navigation:** On success, navigate to `/table/:tableId/scan`.
 
-* **Home Screen (`/home`):**
-    * A simple `Scaffold` with an `AppBar` (with `Dark Fig` title) and a `Drawer`.
-    * The body should contain two large, centered buttons:
-        * **"Create Table"** (`PrimaryButton` - `Deep Berry`). (Does nothing in this phase).
-        * **"Join Table"** (`SecondaryButton` - `Dark Fig` outline). (Does nothing in this phase).
-* **Drawer Implementation:**
-    * Must match the `system-design.md` specification.
-    * **Account Section:**
-        * Display `UserProfile.displayName` and `email`.
-        * Stubbed "Delete account" button (`Destructive` style). It should show a confirmation dialog.
-    * **Sign Out Button:**
-        * Must be pinned at the bottom.
-        * Must use the `Destructive` style (Red text/icon).
-        * On tap, must call `supabase.auth.signOut()` and navigate the user back to the `/auth` screen.
-    * **Stubbed Menu Items:**
-        * "Payment Methods" (links to an empty page).
-        * "History" (links to an empty page).
-        * "Settings" (links to `/settings` page).
+### 2.2 Scan Bill Screen (`/table/:tableId/scan`)
+
+* **UI Components:**
+  * Camera capture button (using `image_picker` or `mobile_scanner`)
+  * Gallery picker option
+  * "Add Items Manually" text button
+  * Loading indicator during scan
+  * Items list display after scanning
+
+* **AI Scan Flow (Magic Path):**
+  1. User captures/selects image.
+  2. Call `POST /tables/:tableId/scan` with image bytes.
+  3. API calls AI service (Gemini/GPT) for OCR.
+  4. API parses items and adds to `SplitTable.items` array.
+  5. Client reloads table data to show new items.
+
+* **Manual Entry (Escape Hatch):**
+  * **"Add Items Manually"** button opens dialog:
+    - Item description field
+    - Price field (numeric input)
+    - Calls `PUT /tables/:tableId/item` to add single item
+  * **"Enter Total & Split Evenly"** button:
+    - Single total amount field
+    - Creates one `BillItem` with full total
+
+* **Success State:**
+  * Display list of all added items
+  * Show total at bottom
+  * "Continue to Invite" button
+
+### 2.3 Host Invite Screen (`/table/:tableId/invite`)
+
+* **UI Components:**
+  * Large QR code (generated using `qr_flutter`)
+  * 6-character table code (prominently displayed)
+  * "Copy Code" button
+  * "Share Invite Link" button (using `share_plus`)
+  * List of joined participants (initially just Host)
+
+* **QR Code Content:**
+  * Deep link format: `pyble://join?code=ABC123`
+  * Use `TableRepository.getJoinLink(tableCode)` to generate
+
+* **Share Link:**
+  * Generate invite link with table code
+  * Use `Share.share()` to open system share sheet
+
+* **Participant Display:**
+  * Show avatars/initials of joined participants
+  * Real-time update via API polling (every 3 seconds)
+  * "Continue to Claiming" button when ready
 
 ---
 
-## 3. Definition of Done (Acceptance Criteria)
+## 3. Data Models Required
 
-* [ ] App initializes Supabase and Riverpod without errors.
-* [ ] A **new user** can open the app, see/skip the tutorial, and sign up using Email/Password.
-* [ ] A **new user** can sign up using Google.
-* [ ] On successful sign-up, the Azure Functions `/profiles` endpoint is called and the profile document is stored in Cosmos DB.
-* [ ] A **new user**, after signing in, is **forced** to the `/terms` screen and cannot leave until they accept the T&Cs.
-* [ ] An **existing user** (with T&Cs accepted) can open the app and is automatically logged in (persistent session works).
-* [ ] A logged-in user lands on the `/home` screen.
-* [ ] The Home screen shows the "Create Table" and "Join Table" buttons.
-* [ ] The user can open the Drawer, see their email/name in the header.
-* [ ] Auth errors (e.g., wrong password) are shown to the user.
-* [ ] The user can successfully **sign out** from the Drawer and is returned to the `/auth` screen.
-* [ ] All UI components (buttons, inputs, drawer) **must** strictly follow the `system-design.md` palette (`Deep Berry`, `Dark Fig`, `Snow`, etc.).
+### TableSession
+```dart
+class TableSession {
+  final String id;
+  final String code;
+  final String hostUserId;
+  final TableStatus status; // claiming, collecting, settled, cancelled
+  final String? title;
+  final DateTime createdAt;
+  final DateTime? closedAt;
+}
+```
+
+### BillItem
+```dart
+class BillItem {
+  final String id;
+  final String tableId;
+  final String description;
+  final double price;
+  final List<ClaimedBy> claimedBy;
+}
+```
+
+---
+
+## 4. API Endpoints Required
+
+| Endpoint | Method | Description |
+|:---------|:-------|:------------|
+| `/tables/active` | GET | Check for user's active table |
+| `/tables` | POST | Create new table |
+| `/tables/:tableId` | GET | Get table data with items/participants |
+| `/tables/:tableId/scan` | POST | AI scan bill image |
+| `/tables/:tableId/item` | PUT | Add single item manually |
+
+---
+
+## 5. Riverpod Providers
+
+* `tableRepositoryProvider` - Repository instance
+* `currentTableProvider` - AsyncNotifier for current table state
+* `isHostProvider` - Boolean if current user is host
+* `tableBillItemsProvider` - Derived list of items
+
+---
+
+## 6. Definition of Done (Acceptance Criteria)
+
+### Onboarding & Auth
+* [ ] Tutorial screen shows on first launch (when `tutorialSeen` is false).
+* [ ] "Get Started" button sets `tutorialSeen = true` and navigates to auth.
+* [ ] Auth screen uses `supabase_auth_ui` for email/password and OAuth.
+* [ ] Session persists across app restarts via Supabase.
+* [ ] Terms screen shows when `hasAcceptedTerms` is false.
+* [ ] Accepting terms updates `UserProfile` and navigates to home.
+* [ ] GoRouter redirects enforce the onboarding → auth → terms → home flow.
+
+### Table Creation & Scanning
+* [ ] Host can tap "Create Table" and new `TableSession` is created with `status: 'claiming'`.
+* [ ] If Host has active table, dialog prompts to resume or cancel.
+* [ ] Host is navigated to scan screen after table creation.
+* [ ] Host can capture photo or pick from gallery.
+* [ ] Image is sent to API for AI parsing.
+* [ ] Items returned from AI are displayed in list.
+* [ ] If scan fails, Host can add items manually via dialog.
+* [ ] Host can enter single total amount for even split.
+
+### Host Invite
+* [ ] Host can navigate to invite screen.
+* [ ] QR code displays with correct deep link (`pyble://join?code=ABC123`).
+* [ ] 6-character code is prominently displayed.
+* [ ] "Copy Code" button copies to clipboard.
+* [ ] "Share" button opens system share sheet.
+* [ ] Participants list updates via API polling.
+
+### General
+* [ ] All UI follows `system-design.md` (Deep Berry, Dark Fig, Snow colors).
+* [ ] Currency symbol is consistent ($) throughout.

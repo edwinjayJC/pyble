@@ -400,19 +400,63 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
   Widget _buildSettleTableButton(BuildContext context, TableData tableData) {
     return ElevatedButton(
-      onPressed: () {
-        // TODO: Implement table settlement
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('All payments collected! Table can be settled.'),
-            backgroundColor: AppColors.lushGreen,
-          ),
-        );
-      },
+      onPressed: () => _settleTable(),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.lushGreen,
       ),
       child: const Text('Settle Table'),
     );
+  }
+
+  Future<void> _settleTable() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Settle Table?'),
+        content: const Text(
+          'This will close the table and mark it as settled. '
+          'All participants have been paid. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.lushGreen,
+            ),
+            child: const Text('Settle'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      await ref.read(currentTableProvider.notifier).settleTable();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Table settled successfully!'),
+            backgroundColor: AppColors.lushGreen,
+          ),
+        );
+        // Navigate to home after settling
+        context.go('/home');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error settling table: $e'),
+            backgroundColor: AppColors.warmSpice,
+          ),
+        );
+      }
+    }
   }
 }

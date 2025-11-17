@@ -8,7 +8,9 @@ import '../../../core/constants/route_names.dart';
 import '../providers/table_provider.dart';
 
 class JoinTableScreen extends ConsumerStatefulWidget {
-  const JoinTableScreen({super.key});
+  final String? initialCode;
+
+  const JoinTableScreen({super.key, this.initialCode});
 
   @override
   ConsumerState<JoinTableScreen> createState() => _JoinTableScreenState();
@@ -20,6 +22,18 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> {
   bool _isLoading = false;
   bool _showScanner = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-join if initial code is provided (from deep link)
+    if (widget.initialCode != null && widget.initialCode!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _codeController.text = widget.initialCode!;
+        _joinTable(widget.initialCode!);
+      });
+    }
+  }
 
   @override
   void dispose() {

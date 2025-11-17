@@ -8,6 +8,7 @@ import '../constants/app_constants.dart';
 import '../providers/supabase_provider.dart';
 import '../../features/auth/providers/user_profile_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
+import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/table/screens/create_table_screen.dart';
 import '../../features/table/screens/host_invite_screen.dart';
 import '../../features/table/screens/join_table_screen.dart';
@@ -18,36 +19,6 @@ import '../../features/payments/screens/participant_payment_screen.dart';
 import '../../features/payments/screens/payment_webview_screen.dart';
 import '../../features/payments/screens/payment_processing_screen.dart';
 import '../../features/payments/models/payment_record.dart';
-
-// Placeholder screens - will be replaced with actual implementations
-class OnboardingScreen extends StatelessWidget {
-  const OnboardingScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Welcome to Pyble', style: TextStyle(fontSize: 24)),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool(AppConstants.tutorialSeenKey, true);
-                if (context.mounted) {
-                  context.go(RoutePaths.auth);
-                }
-              },
-              child: const Text('Get Started'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -334,7 +305,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.joinTable,
         name: RouteNames.joinTable,
-        builder: (context, state) => const JoinTableScreen(),
+        builder: (context, state) {
+          // Handle deep link: pyble://join?code=ABC123
+          final code = state.uri.queryParameters['code'];
+          if (code != null && code.isNotEmpty) {
+            return JoinTableScreen(initialCode: code);
+          }
+          return const JoinTableScreen();
+        },
       ),
       GoRoute(
         path: RoutePaths.claimTable,

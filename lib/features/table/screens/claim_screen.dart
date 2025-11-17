@@ -374,6 +374,62 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   }
 
   void _onItemLongPress(item, participants) {
+    final isHost = ref.read(isHostProvider);
+
+    if (isHost && !item.isClaimed) {
+      // Show host options for unclaimed items
+      _showHostItemOptions(item, participants);
+    } else {
+      // Show regular split sheet
+      _showSplitSheet(item, participants);
+    }
+  }
+
+  void _showHostItemOptions(item, participants) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Split "${item.description}"',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _splitAmongAllDiners(item.id);
+              },
+              icon: const Icon(Icons.people),
+              label: const Text('Split Among All Diners'),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _showSplitSheet(item, participants);
+              },
+              icon: const Icon(Icons.group_add),
+              label: const Text('Choose Specific People'),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSplitSheet(item, participants) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -391,6 +447,29 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _splitAmongAllDiners(String itemId) async {
+    try {
+      await ref.read(currentTableProvider.notifier).splitItemAmongAllDiners(itemId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Item split among all diners'),
+            backgroundColor: AppColors.lushGreen,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.warmSpice,
+          ),
+        );
+      }
+    }
   }
 
   void _showParticipantsSheet(BuildContext context) {

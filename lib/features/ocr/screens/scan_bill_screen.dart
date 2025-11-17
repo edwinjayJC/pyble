@@ -201,7 +201,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                 controller: _priceController,
                 decoration: const InputDecoration(
                   labelText: 'Price',
-                  prefixText: 'R ',
+                  prefixText: '\$ ',
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
@@ -290,7 +290,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
               controller: _priceController,
               decoration: const InputDecoration(
                 labelText: 'Total Amount',
-                prefixText: 'R ',
+                prefixText: '\$ ',
               ),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -452,7 +452,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                           return ListTile(
                             title: Text(item.description),
                             trailing: Text(
-                              'R ${item.price.toStringAsFixed(2)}',
+                              '\$${item.price.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -474,7 +474,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           Text(
-                            'R ${items.fold<double>(0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
+                            '\$${items.fold<double>(0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
                             style: Theme.of(context)
                                 .textTheme
                                 .headlineMedium

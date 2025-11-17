@@ -173,6 +173,13 @@ class TableRepository {
     );
   }
 
+  Future<TableSession> settleTable(String tableId) async {
+    return await apiClient.put(
+      '/tables/$tableId/settle',
+      parser: (data) => TableSession.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
   Future<void> cancelTable(String tableId) async {
     await apiClient.put(
       '/tables/$tableId/cancel',
