@@ -6,7 +6,7 @@ import '../../../core/constants/app_constants.dart';
 import '../repository/table_repository.dart';
 import '../models/table_session.dart';
 import '../models/participant.dart';
-import '../models/bill_item.dart';
+import '../models/bill_item.dart' show BillItem, ClaimedBy;
 
 final tableRepositoryProvider = Provider<TableRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -45,6 +45,7 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
       _startPolling(table.id);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
@@ -127,6 +128,98 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
       ));
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+    }
+  }
+
+  // Phase 2: Claiming methods
+  Future<void> claimItem(String itemId) async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    // Optimistic update
+    final updatedItems = currentData.items.map((item) {
+      if (item.id == itemId) {
+        final alreadyClaimed = item.isClaimedByUser(currentUser.id);
+        if (alreadyClaimed) {
+          // Remove claim
+          final newClaimedBy = item.claimedBy
+              .where((c) => c.userId != currentUser.id)
+              .toList();
+          return item.copyWith(claimedBy: newClaimedBy);
+        } else {
+          // Add claim
+          final newClaimedBy = [
+            ...item.claimedBy,
+            ClaimedBy(
+              userId: currentUser.id,
+              share: item.price / (item.claimantsCount + 1),
+            ),
+          ];
+          // Recalculate shares
+          final sharePerPerson = item.price / newClaimedBy.length;
+          final adjustedClaimedBy = newClaimedBy
+              .map((c) => ClaimedBy(userId: c.userId, share: sharePerPerson))
+              .toList();
+          return item.copyWith(claimedBy: adjustedClaimedBy);
+        }
+      }
+      return item;
+    }).toList();
+
+    state = AsyncValue.data(currentData.copyWith(items: updatedItems));
+
+    try {
+      final item = currentData.items.firstWhere((i) => i.id == itemId);
+      final action = item.isClaimedByUser(currentUser.id) ? 'unclaim' : 'claim';
+      await repository.claimItem(
+        tableId: currentData.table.id,
+        itemId: itemId,
+        action: action,
+      );
+    } catch (e) {
+      // Revert on error
+      state = AsyncValue.data(currentData);
+      rethrow;
+    }
+  }
+
+  Future<void> splitItemAcrossUsers(
+      String itemId, List<String> userIds) async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    // Optimistic update
+    final updatedItems = currentData.items.map((item) {
+      if (item.id == itemId) {
+        final sharePerPerson = item.price / userIds.length;
+        final newClaimedBy = userIds
+            .map((userId) =>
+                ClaimedBy(userId: userId, share: sharePerPerson))
+            .toList();
+        return item.copyWith(claimedBy: newClaimedBy);
+      }
+      return item;
+    }).toList();
+
+    state = AsyncValue.data(currentData.copyWith(items: updatedItems));
+
+    try {
+      await repository.splitItemAcrossUsers(
+        tableId: currentData.table.id,
+        itemId: itemId,
+        userIds: userIds,
+      );
+    } catch (e) {
+      // Revert on error
+      state = AsyncValue.data(currentData);
+      rethrow;
     }
   }
 

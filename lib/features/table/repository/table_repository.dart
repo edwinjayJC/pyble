@@ -41,6 +41,24 @@ class TableData {
       tip: (json['tip'] as num?)?.toDouble() ?? 0.0,
     );
   }
+
+  TableData copyWith({
+    TableSession? table,
+    List<Participant>? participants,
+    List<BillItem>? items,
+    double? subTotal,
+    double? tax,
+    double? tip,
+  }) {
+    return TableData(
+      table: table ?? this.table,
+      participants: participants ?? this.participants,
+      items: items ?? this.items,
+      subTotal: subTotal ?? this.subTotal,
+      tax: tax ?? this.tax,
+      tip: tip ?? this.tip,
+    );
+  }
 }
 
 class TableRepository {
@@ -151,4 +169,40 @@ class TableRepository {
   String getJoinLink(String tableCode) {
     return 'pyble://join?code=$tableCode';
   }
+
+  // Phase 2: Claiming methods
+  Future<void> claimItem({
+    required String tableId,
+    required String itemId,
+    required String action, // "claim" or "unclaim"
+  }) async {
+    await apiClient.put(
+      '/tables/$tableId/claim',
+      body: {
+        'itemId': itemId,
+        'action': action,
+      },
+      parser: (_) {},
+    );
+  }
+
+  Future<void> splitItemAcrossUsers({
+    required String tableId,
+    required String itemId,
+    required List<String> userIds,
+  }) async {
+    // First unclaim all existing claims, then claim for selected users
+    for (final userId in userIds) {
+      await apiClient.put(
+        '/tables/$tableId/claim',
+        body: {
+          'itemId': itemId,
+          'action': 'claim',
+          'userId': userId,
+        },
+        parser: (_) {},
+      );
+    }
+  }
 }
+

@@ -9,6 +9,7 @@ class RouteNames {
   static const String scanBill = 'scan-bill';
   static const String inviteParticipants = 'invite-participants';
   static const String joinTable = 'join-table';
+  static const String claimTable = 'claim-table';
   static const String paymentProcessing = 'payment-processing';
   static const String history = 'history';
 }
@@ -24,6 +25,7 @@ class RoutePaths {
   static const String scanBill = '/table/:tableId/scan';
   static const String inviteParticipants = '/table/:tableId/invite';
   static const String joinTable = '/join';
+  static const String claimTable = '/table/:tableId/claim';
   static const String paymentProcessing = '/payment-processing/:tableId';
   static const String history = '/history';
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../../core/theme/app_colors.dart';
@@ -34,12 +35,8 @@ class HostInviteScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () {
-              // Navigate to claiming screen (Phase 2)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Claiming screen coming in Phase 2'),
-                ),
-              );
+              // Navigate to claiming screen
+              context.go('/table/$tableId/claim');
             },
             child: const Text('Done'),
           ),

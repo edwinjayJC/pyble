@@ -10,6 +10,8 @@ import '../../features/auth/providers/user_profile_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
 import '../../features/table/screens/create_table_screen.dart';
 import '../../features/table/screens/host_invite_screen.dart';
+import '../../features/table/screens/join_table_screen.dart';
+import '../../features/table/screens/claim_screen.dart';
 import '../../features/ocr/screens/scan_bill_screen.dart';
 
 // Placeholder screens - will be replaced with actual implementations
@@ -233,18 +235,6 @@ class HistoryScreen extends StatelessWidget {
   }
 }
 
-class JoinTableScreen extends StatelessWidget {
-  const JoinTableScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Join Table')),
-      body: const Center(child: Text('Join Table Screen - Coming in Phase 2')),
-    );
-  }
-}
-
 final routerProvider = Provider<GoRouter>((ref) {
   final isAuthenticated = ref.watch(isAuthenticatedProvider);
   final userProfile = ref.watch(userProfileProvider);
@@ -340,6 +330,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.joinTable,
         name: RouteNames.joinTable,
         builder: (context, state) => const JoinTableScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.claimTable,
+        name: RouteNames.claimTable,
+        builder: (context, state) {
+          final tableId = state.pathParameters['tableId']!;
+          return ClaimScreen(tableId: tableId);
+        },
       ),
     ],
   );

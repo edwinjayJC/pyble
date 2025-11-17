@@ -1,7 +1,7 @@
 enum TableStatus {
   claiming,
   collecting,
-  closed,
+  settled,
   cancelled;
 
   factory TableStatus.fromString(String value) {
@@ -80,5 +80,6 @@ class TableSession {
   bool get isHost => false; // Will be determined by provider
   bool get isClaiming => status == TableStatus.claiming;
   bool get isCollecting => status == TableStatus.collecting;
-  bool get isClosed => status == TableStatus.closed;
+  bool get isSettled => status == TableStatus.settled;
 }
+
