@@ -109,6 +109,14 @@ flutter:
       fonts:
         - asset: assets/fonts/Qilka-Bold.otf
           weight: 900
+    - family: Quip
+      fonts:
+        - asset: assets/fonts/Quip.otf
+          weight: 900
+    - family: HoneyDrops2
+      fonts:
+        - asset: assets/fonts/HoneyDrops2-Regular.ttf
+          weight: 900
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package

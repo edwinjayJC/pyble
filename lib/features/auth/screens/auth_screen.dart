@@ -35,18 +35,18 @@ class AuthScreen extends ConsumerWidget {
                             )),
                       ),
                       Text(
-                        'pyble',
+                        'Pyble',
                         style:
                             Theme.of(context).textTheme.displayLarge?.copyWith(
-                                  color: AppColors.deepBerry,
-                                  fontSize: 50,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: "Qilka-Bold"
+                                  color: AppColors.darkFig,
+                                  fontSize: 60,
+                                  fontWeight: FontWeight.normal,
+                                  fontFamily: "Quip"
                                 ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Split bills with friends',
+                        'Pay Your Piece of The Pie',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               color: AppColors.darkFig.withOpacity(0.7),
                             ),
