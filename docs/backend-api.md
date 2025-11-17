@@ -1,0 +1,215 @@
+# Pyble API Specification (Azure Functions)
+
+**Version:** 1.0
+**Base URL:** `[Your Azure Function Base URL]/api/`
+**Architecture:** This API is a set of serverless Azure Functions that act as the backend for the Pyble app. It uses **Cosmos DB** for data storage (following the `database-schema.md`) and **Supabase** for JWT-based authentication.
+
+---
+
+## 1. Global Rules: Authentication
+
+All endpoints (unless specified) are protected. The client **must** send a valid Supabase JWT in the authorization header.
+
+* **Header:** `Authorization: Bearer <Supabase JWT>`
+* **Error Response (Missing/Invalid Token):**
+    * **Code:** `401 Unauthorized`
+    * **Body:** `{ "error": "Authentication required." }`
+
+---
+
+## 2. Resource: Profiles & Auth
+
+Endpoints for managing user profiles and auth-related tasks.
+
+### `POST /profiles`
+* **Action:** Creates a new user profile in Cosmos DB. This is called **once** immediately after a successful Supabase sign-up.
+* **Body:**
+    ```json
+    {
+      "id": "supabase-uuid",
+      "email": "user@example.com",
+      "displayName": "User Name"
+    }
+    ```
+* **Success Response:** `201 Created`
+    * **Body:** The new `UserProfile` document.
+* **Error Response:** `409 Conflict` (if profile `id` already exists).
+
+### `GET /profiles/me`
+* **Action:** Fetches the `UserProfile` document for the currently authenticated user.
+* **Success Response:** `200 OK`
+    * **Body:** The `UserProfile` document from Cosmos DB.
+* **Error Response:** `404 Not Found` (if profile does not exist for auth'd user).
+
+### `POST /profiles/accept-terms`
+* **Action:** Sets the `hasAcceptedTerms` flag to `true` for the current user.
+* **Success Response:** `200 OK`
+    * **Body:** The *updated* `UserProfile` document.
+
+### `POST /profiles/payment-method`
+* **Action:** (Phase 4) Saves a Paystack payment token/customer to the user's profile.
+* **Body:**
+    ```json
+    {
+      "paystackClientToken": "tok_123abc" 
+    }
+    ```
+* **Success Response:** `200 OK`
+    * **Body:** `{ "paystackCustomerId": "CUS_123abc" }`
+
+### `POST /profiles/payout-account`
+* **Action:** (Phase 4) Saves Paystack payout (transfer recipient) details to the user's profile.
+* **Body:**
+    ```json
+    {
+      "accountNumber": "1234567890",
+      "bankCode": "058",
+      "accountName": "User Name"
+    }
+    ```
+* **Success Response:** `200 OK`
+    * **Body:** `{ "paystackRecipientCode": "RCP_123abc" }`
+
+---
+
+## 3. Resource: Tables & Real-Time
+
+Endpoints for creating, joining, and managing `SplitTable` sessions.
+
+### `POST /tables`
+* **Action:** (Phase 2) Creates a new `SplitTable` session. The caller becomes the Host.
+* **Body:** (Optional)
+    ```json
+    {
+      "title": "Dinner at The Grill"
+    }
+    ```
+* **Success Response:** `201 Created`
+    * **Body:** `{ "table": SplitTable, "signalRNegotiationPayload": { ... } }`
+* **Error Response:** `409 Conflict` (if the user is already a Host of an active table).
+
+### `GET /tables/:tableId`
+* **Action:** (Phase 2) Fetches the complete, single `SplitTable` document.
+* **Success Response:** `200 OK`
+    * **Body:** The `SplitTable` document.
+* **Error Response:** `404 Not Found`, `403 Forbidden` (if user is not a participant).
+
+### `POST /tables/:code/join`
+* **Action:** (Phase 2) Joins an existing table using the 6-character code.
+* **Success Response:** `200 OK`
+    * **Body:** `{ "table": SplitTable, "signalRNegotiationPayload": { ... } }`
+* **Error Response:** `404 Not Found` (invalid code), `403 Forbidden` (table is locked/settled).
+
+---
+
+## 4. Resource: Bill Management
+
+Endpoints for scanning and editing the bill.
+
+### `POST /tables/:tableId/scan`
+* **Action:** (Phase 3) (Host-only) Scans the bill. Sends image to Vertex AI, parses items, and patches the `items` array in the `SplitTable` document.
+* **Body:** `(multipart/form-data)` with the image file.
+* **Success Response:** `200 OK` (No body needed. Client will update via SignalR).
+* **Error Response:** `500 Internal Server Error` (if AI parsing fails).
+
+### `PUT /tables/:tableId/item`
+* **Action:** (Phase 3) (Host-only) Manually adds a new item to the bill.
+* **Body:**
+    ```json
+    {
+      "name": "Fries",
+      "price": 50.00
+    }
+    ```
+* **Success Response:** `200 OK` (Client will update via SignalR).
+
+### `PUT /tables/:tableId/item/:itemId`
+* **Action:** (Phase 3) (Host-only) Edits an existing item.
+* **Body:**
+    ```json
+    {
+      "name": "Large Fries",
+      "price": 55.00
+    }
+    ```
+* **Success Response:** `200 OK` (Client will update via SignalR).
+
+### `DELETE /tables/:tableId/item/:itemId`
+* **Action:** (Phase 3) (Host-only) Deletes an item from the bill.
+* **Success Response:** `200 OK` (Client will update via SignalR).
+
+### `PUT /tables/:tableId/claim`
+* **Action:** (Phase 2) (Participant) Claims or unclaims an item.
+* **Body:**
+    ```json
+    {
+      "itemId": "uuid-of-item",
+      "action": "claim" 
+    }
+    ```
+  *(or "unclaim")*
+* **Success Response:** `200 OK` (Client will update via SignalR).
+
+---
+
+## 5. Resource: Payments & Settlement
+
+Endpoints for handling the payment and verification flow.
+
+### `POST /tables/:tableId/pay`
+* **Action:** (Phase 4) (Participant) Initiates an in-app payment via Paystack.
+* **Body:**
+    ```json
+    {
+      "tipAmount": 20.50 
+    }
+    ```
+* **Success Response:** `200 OK` (Client will update via SignalR).
+* **Error Response:** `402 Payment Required` (if Paystack charge fails).
+
+### `POST /tables/:tableId/mark-paid-outside`
+* **Action:** (Phase 4) (Participant) Marks their payment as "Paid outside app," setting their status to `awaiting_confirmation`.
+* **Success Response:** `200 OK` (Client will update via SignalR).
+
+### `POST /tables/:tableId/confirm-payment`
+* **Action:** (Phase 4) (Host-only) Confirms an "outside" payment.
+* **Body:**
+    ```json
+    {
+      "participantUserId": "uuid-of-participant"
+    }
+    ```
+* **Success Response:** `200 OK` (Client will update via SignalR).
+
+### `POST /tables/:tableId/close`
+* **Action:** (Phase 4) (Host-only) Closes the table, setting its status to `settled`.
+* **Pre-condition:** All participants must have a `paid_` status.
+* **Success Response:** `200 OK` (Client will update via SignalR).
+* **Error Response:** `409 Conflict` (if not all participants are settled).
+
+---
+
+## 6. Resource: History
+
+Endpoints for retrieving historical data.
+
+### `GET /tables/history`
+* **Action:** (Phase 4) Gets a list of all `SplitTable` documents where the current user was a participant and the `status` is `settled`.
+* **Success Response:** `200 OK`
+    * **Body:** `[ SplitTable, SplitTable, ... ]`
+
+---
+
+## 7. Resource: Real-Time & Debug
+
+### `POST /signalr/negotiate`
+* **Action:** (Phase 2) Gets the connection info for the Azure SignalR hub.
+* **Note:** This is often returned by the `POST /tables` and `POST /tables/:code/join` endpoints automatically, but a standalone negotiator may be needed.
+* **Success Response:** `200 OK`
+    * **Body:** `{ "url": "...", "accessToken": "..." }`
+
+### `POST /ocr-test`
+* **Action:** (Phase 3) Debug endpoint. Sends an image directly to Vertex AI and returns the raw JSON. Does not touch Cosmos DB.
+* **Body:** `(multipart/form-data)` with the image file.
+* **Success Response:** `200 OK`
+    * **Body:** The raw JSON response from Gemini.
