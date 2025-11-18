@@ -26,4 +26,20 @@ class AppColors {
   static const lightBerry = Color(0xFFFFF8FB);
   static const lightGreen = Color(0xFFE6F4F0);
   static const lightWarmSpice = Color(0xFFFFF0E6);
+
+  // Dark Theme UI Colors (Based on design-system.md)
+  static const darkFigBackground = Color(0xFF4A2C40); // Our main dark background
+  static const darkSurface = Color(0xFF5A3C50); // For cards, appbars, etc.
+
+  // Brighter "Dark Mode" Brand & Semantic Colors
+  // These are required for accessible contrast on dark backgrounds
+  static const brightBerry = Color(0xFFE73A7B);
+  static const brightGreen = Color(0xFF00E0A3);
+  static const brightWarmSpice = Color(0xFFFF8A4D);
+
+  // Dark Theme Text
+  static const darkTextPrimary = Color(0xFFFFFFFF); // Replaces Snow
+  static const darkTextSecondary = Color(0xFFE0E0E0); // Replaces Pale Gray
+  static const darkTextDisabled = Color(0x80FFFFFF); // Snow @ 50%
+  static const darkBorder = Color(0x4DE0E0E0); // Pale Gray @ 30%
 }

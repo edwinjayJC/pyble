@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/providers/supabase_provider.dart';
 import '../providers/table_provider.dart';
 import '../widgets/bill_item_row.dart';
@@ -85,7 +84,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.check_circle, size: 64, color: AppColors.lushGreen),
+                  Icon(
+                    Icons.check_circle,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Table Settled',
@@ -103,13 +106,16 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             );
           }
 
+          final colorScheme = Theme.of(context).colorScheme;
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
           return Column(
             children: [
               // Table info header
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
-                color: AppColors.lightBerry.withOpacity(0.1),
+                color: colorScheme.primary.withOpacity(isDark ? 0.15 : 0.05),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -119,18 +125,18 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                           'Table: ${tableData.table.code}',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.deepBerry,
+                                color: colorScheme.primary,
                               ),
                         ),
                         const Spacer(),
-                        _buildStatusChip(tableData.table.status),
+                        _buildStatusChip(context, tableData.table.status),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${tableData.participants.length} participants',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.darkFig.withOpacity(0.7),
+                            color: colorScheme.onSurface.withOpacity(0.7),
                           ),
                     ),
                   ],
@@ -141,10 +147,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: AppColors.lightCrust,
+                color: colorScheme.surfaceVariant.withOpacity(isDark ? 0.3 : 0.5),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline, size: 18, color: AppColors.darkFig),
+                    Icon(
+                      Icons.info_outline,
+                      size: 18,
+                      color: colorScheme.onSurface.withOpacity(0.8),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -152,7 +162,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                             ? 'Tap items to claim. Long press to split with others.'
                             : 'Bill is locked. Waiting for payment.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.darkFig.withOpacity(0.8),
+                              color: colorScheme.onSurface.withOpacity(0.8),
                             ),
                       ),
                     ),
@@ -170,13 +180,13 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                             Icon(
                               Icons.receipt_long,
                               size: 64,
-                              color: AppColors.darkFig.withOpacity(0.3),
+                              color: colorScheme.onSurface.withOpacity(0.3),
                             ),
                             const SizedBox(height: 16),
                             Text(
                               'No items yet',
                               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: AppColors.darkFig.withOpacity(0.5),
+                                    color: colorScheme.onSurface.withOpacity(0.5),
                                   ),
                             ),
                             if (isHost)
@@ -185,7 +195,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                                 child: Text(
                                   'Scan or add items to the bill',
                                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: AppColors.darkFig.withOpacity(0.5),
+                                        color: colorScheme.onSurface.withOpacity(0.5),
                                       ),
                                 ),
                               ),
@@ -222,10 +232,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.snow,
+                  color: colorScheme.surface,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: colorScheme.shadow.withOpacity(0.1),
                       blurRadius: 8,
                       offset: const Offset(0, -2),
                     ),
@@ -234,12 +244,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 child: Column(
                   children: [
                     _buildSummaryRow(
+                      context,
                       'Subtotal',
                       '\$${tableData.items.fold(0.0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
                     ),
                     if (currentUser != null) ...[
                       const Divider(height: 16),
                       _buildSummaryRow(
+                        context,
                         'Your Total',
                         '\$${_calculateUserTotal(tableData.items, currentUser.id).toStringAsFixed(2)}',
                         isBold: true,
@@ -262,7 +274,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                           child: Text(
                             'All items must be claimed before locking',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: AppColors.warmSpice,
+                                  color: colorScheme.error,
                                 ),
                           ),
                         ),
@@ -278,7 +290,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: AppColors.warmSpice),
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Theme.of(context).colorScheme.error,
+              ),
               const SizedBox(height: 16),
               Text('Error: $error'),
               const SizedBox(height: 16),
@@ -295,24 +311,33 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  Widget _buildStatusChip(TableStatus status) {
-    Color color;
+  Widget _buildStatusChip(BuildContext context, TableStatus status) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Color bgColor;
+    Color textColor;
     String text;
+
     switch (status) {
       case TableStatus.claiming:
-        color = AppColors.lushGreen;
+        bgColor = colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1);
+        textColor = colorScheme.primary;
         text = 'Claiming';
         break;
       case TableStatus.collecting:
-        color = AppColors.warmSpice;
+        bgColor = colorScheme.error.withOpacity(isDark ? 0.2 : 0.1);
+        textColor = colorScheme.error;
         text = 'Collecting';
         break;
       case TableStatus.settled:
-        color = AppColors.darkFig;
+        bgColor = colorScheme.primary.withOpacity(isDark ? 0.15 : 0.08);
+        textColor = colorScheme.primary;
         text = 'Settled';
         break;
       case TableStatus.cancelled:
-        color = AppColors.paleGray;
+        bgColor = colorScheme.onSurface.withOpacity(isDark ? 0.15 : 0.08);
+        textColor = colorScheme.onSurface.withOpacity(0.6);
         text = 'Cancelled';
         break;
     }
@@ -320,13 +345,13 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: bgColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Text(
         text,
         style: TextStyle(
-          color: color,
+          color: textColor,
           fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
@@ -334,7 +359,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, {bool isBold = false}) {
+  Widget _buildSummaryRow(
+    BuildContext context,
+    String label,
+    String value, {
+    bool isBold = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -342,14 +374,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           label,
           style: TextStyle(
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: AppColors.darkFig,
+            color: colorScheme.onSurface,
           ),
         ),
         Text(
           value,
           style: TextStyle(
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: isBold ? AppColors.deepBerry : AppColors.darkFig,
+            color: isBold ? colorScheme.primary : colorScheme.onSurface,
             fontSize: isBold ? 18 : 14,
           ),
         ),
@@ -454,9 +486,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       await ref.read(currentTableProvider.notifier).splitItemAmongAllDiners(itemId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Item split among all diners'),
-            backgroundColor: AppColors.lushGreen,
+          SnackBar(
+            content: const Text('Item split among all diners'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
       }
@@ -465,7 +497,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: AppColors.warmSpice,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -476,9 +508,12 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     final tableData = ref.read(currentTableProvider).valueOrNull;
     if (tableData == null) return;
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
+      builder: (bottomSheetContext) => Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -486,18 +521,19 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           children: [
             Text(
               'Participants',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              style: Theme.of(bottomSheetContext).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
             ),
             const SizedBox(height: 16),
             ...tableData.participants.map((p) => ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: AppColors.lightBerry,
+                    backgroundColor:
+                        colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1),
                     child: Text(
                       p.initials,
-                      style: const TextStyle(
-                        color: AppColors.deepBerry,
+                      style: TextStyle(
+                        color: colorScheme.primary,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -505,9 +541,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                   title: Text(p.displayName),
                   subtitle: Text('\$${p.totalOwed.toStringAsFixed(2)} owed'),
                   trailing: p.userId == tableData.table.hostUserId
-                      ? const Chip(
-                          label: Text('Host'),
-                          backgroundColor: AppColors.lightBerry,
+                      ? Chip(
+                          label: const Text('Host'),
+                          backgroundColor:
+                              colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1),
                         )
                       : null,
                 )),

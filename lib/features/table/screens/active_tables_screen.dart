@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/providers/supabase_provider.dart';
 import '../providers/table_provider.dart';
@@ -33,10 +32,10 @@ class ActiveTablesScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.error_outline,
                 size: 64,
-                color: AppColors.warmSpice,
+                color: Theme.of(context).colorScheme.error,
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
@@ -47,7 +46,7 @@ class ActiveTablesScreen extends ConsumerWidget {
               Text(
                 error.toString(),
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.darkFig.withOpacity(0.7),
+                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                     ),
                 textAlign: TextAlign.center,
               ),
@@ -109,16 +108,18 @@ class ActiveTablesScreen extends ConsumerWidget {
   }
 
   Widget _buildEmptyState(BuildContext context, bool isHost) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       child: Padding(
         padding: AppSpacing.screenPadding,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
+            Icon(
               Icons.table_restaurant,
               size: 80,
-              color: AppColors.paleGray,
+              color: colorScheme.onSurface.withOpacity(0.3),
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
@@ -130,7 +131,7 @@ class ActiveTablesScreen extends ConsumerWidget {
             Text(
               'You don\'t have any active tables.\nCreate a new table or join an existing one.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.darkFig.withOpacity(0.7),
+                    color: colorScheme.onSurface.withOpacity(0.7),
                   ),
               textAlign: TextAlign.center,
             ),
@@ -147,13 +148,16 @@ class ActiveTablesScreen extends ConsumerWidget {
     TableSession table,
     bool isHost,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       elevation: 1,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(
-          color: AppColors.paleGray,
+        side: BorderSide(
+          color: colorScheme.onSurface.withOpacity(0.12),
           width: 1,
         ),
       ),
@@ -174,12 +178,12 @@ class ActiveTablesScreen extends ConsumerWidget {
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: AppColors.lightBerry,
+                      color: colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.table_restaurant,
-                      color: AppColors.deepBerry,
+                      color: colorScheme.primary,
                       size: 24,
                     ),
                   ),
@@ -198,7 +202,7 @@ class ActiveTablesScreen extends ConsumerWidget {
                           'Code: ${table.code}',
                           style:
                               Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: AppColors.darkFig.withOpacity(0.7),
+                                    color: colorScheme.onSurface.withOpacity(0.7),
                                   ),
                         ),
                       ],
@@ -221,16 +225,16 @@ class ActiveTablesScreen extends ConsumerWidget {
                     ),
                     decoration: BoxDecoration(
                       color: isHost
-                          ? AppColors.lightBerry
-                          : AppColors.lightCrust,
+                          ? colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1)
+                          : colorScheme.surface.withOpacity(isDark ? 0.3 : 0.05),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       isHost ? 'HOST' : 'PARTICIPANT',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: isHost
-                                ? AppColors.deepBerry
-                                : AppColors.darkFig,
+                                ? colorScheme.primary
+                                : colorScheme.onSurface.withOpacity(0.8),
                             fontWeight: FontWeight.w600,
                             fontSize: 10,
                             letterSpacing: 0.5,
@@ -242,7 +246,7 @@ class ActiveTablesScreen extends ConsumerWidget {
                   Text(
                     _formatDate(table.createdAt),
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.darkFig.withOpacity(0.6),
+                          color: colorScheme.onSurface.withOpacity(0.6),
                         ),
                   ),
                 ],
@@ -255,29 +259,33 @@ class ActiveTablesScreen extends ConsumerWidget {
   }
 
   Widget _buildStatusBadge(BuildContext context, TableStatus status) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Color bgColor;
     Color textColor;
     String label;
 
     switch (status) {
       case TableStatus.claiming:
-        bgColor = AppColors.lightBerry;
-        textColor = AppColors.deepBerry;
+        bgColor = colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1);
+        textColor = colorScheme.primary;
         label = 'Claiming';
         break;
       case TableStatus.collecting:
-        bgColor = AppColors.lightWarmSpice;
-        textColor = AppColors.warmSpice;
+        // Using error color for warning/in-progress state
+        bgColor = colorScheme.error.withOpacity(isDark ? 0.2 : 0.1);
+        textColor = colorScheme.error;
         label = 'Collecting';
         break;
       case TableStatus.settled:
-        bgColor = AppColors.lightGreen;
-        textColor = AppColors.lushGreen;
+        // Using primary with different opacity for settled
+        bgColor = colorScheme.primary.withOpacity(isDark ? 0.15 : 0.08);
+        textColor = colorScheme.primary;
         label = 'Settled';
         break;
       case TableStatus.cancelled:
-        bgColor = AppColors.paleGray;
-        textColor = AppColors.darkFig;
+        bgColor = colorScheme.onSurface.withOpacity(isDark ? 0.15 : 0.08);
+        textColor = colorScheme.onSurface.withOpacity(0.6);
         label = 'Cancelled';
         break;
     }
@@ -302,6 +310,8 @@ class ActiveTablesScreen extends ConsumerWidget {
   }
 
   Widget _buildActionButtons(BuildContext context, bool isHost) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -317,18 +327,18 @@ class ActiveTablesScreen extends ConsumerWidget {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppColors.lightWarmSpice,
+              color: colorScheme.error.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.warmSpice.withOpacity(0.3),
+                color: colorScheme.error.withOpacity(0.3),
                 width: 1,
               ),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.info_outline,
-                  color: AppColors.warmSpice,
+                  color: colorScheme.error,
                   size: 20,
                 ),
                 const SizedBox(width: AppSpacing.sm),
@@ -336,7 +346,7 @@ class ActiveTablesScreen extends ConsumerWidget {
                   child: Text(
                     'You can only host one table at a time. Close your current table to create a new one.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.warmSpice,
+                          color: colorScheme.error,
                         ),
                   ),
                 ),
