@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/route_names.dart';
 import '../constants/app_constants.dart';
 import '../providers/supabase_provider.dart';
+import '../theme/providers/theme_mode_provider.dart';
 import '../../features/auth/providers/user_profile_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -187,14 +188,93 @@ class TermsScreen extends ConsumerWidget {
   }
 }
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final notifier = ref.read(themeModeProvider.notifier);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: const Center(child: Text('Settings Screen - Coming Soon')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          SettingsSection(
+            title: 'Appearance',
+            subtitle: 'Tune how Pyble looks and feels.',
+            children: [
+              SwitchListTile.adaptive(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                secondary: const Icon(Icons.dark_mode_outlined),
+                title: const Text('Dark mode'),
+                subtitle: const Text('Reduce glare with a darker palette.'),
+                value: themeMode == ThemeMode.dark,
+                onChanged: (isDark) => notifier
+                    .setThemeMode(isDark ? ThemeMode.dark : ThemeMode.light),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const SettingsSection(
+            title: 'Account & Security',
+            subtitle: 'Manage your profile and account preferences.',
+            children: [
+              ListTile(
+                contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                leading: Icon(Icons.lock_outline),
+                title: Text('Two-factor authentication'),
+                subtitle: Text('Coming soon'),
+                enabled: false,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class SettingsSection extends StatelessWidget {
+  const SettingsSection({
+    super.key,
+    required this.title,
+    required this.children,
+    this.subtitle,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        );
+    final subtitleStyle = Theme.of(context).textTheme.bodySmall;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: titleStyle),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(subtitle!, style: subtitleStyle),
+        ],
+        const SizedBox(height: 12),
+        Card(
+          child: Column(
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) const Divider(height: 1),
+                children[i],
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
