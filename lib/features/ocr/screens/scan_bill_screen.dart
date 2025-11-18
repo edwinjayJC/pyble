@@ -21,6 +21,7 @@ class ScanBillScreen extends ConsumerStatefulWidget {
 class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
   final ImagePicker _picker = ImagePicker();
   Uint8List? _imageBytes;
+  String? _imageMimeType;
   bool _isScanning = false;
   bool _scanComplete = false;
 
@@ -55,6 +56,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
       final bytes = await image.readAsBytes();
       setState(() {
         _imageBytes = bytes;
+        _imageMimeType = image.mimeType ?? 'image/jpeg';
       });
       await _scanBill();
     }
@@ -70,13 +72,14 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
       final bytes = await image.readAsBytes();
       setState(() {
         _imageBytes = bytes;
+        _imageMimeType = image.mimeType ?? 'image/jpeg';
       });
       await _scanBill();
     }
   }
 
   Future<void> _scanBill() async {
-    if (_imageBytes == null) return;
+    if (_imageBytes == null || _imageMimeType == null) return;
 
     setState(() => _isScanning = true);
 
@@ -85,6 +88,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
       final itemCount = await repository.scanBill(
         tableId: widget.tableId,
         imageBytes: _imageBytes!,
+        mimeType: _imageMimeType!,
       );
 
       setState(() {

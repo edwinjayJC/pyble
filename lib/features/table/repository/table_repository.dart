@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import '../../../core/api/api_client.dart';
 import '../models/table_session.dart';
@@ -175,17 +176,15 @@ class TableRepository {
   Future<int> scanBill({
     required String tableId,
     required Uint8List imageBytes,
+    required String mimeType,
   }) async {
-    // TODO: Implement multipart form data upload
-    // For now, we'll use a simple base64 encoding
-    final base64Image = Uri.encodeComponent(
-      String.fromCharCodes(imageBytes),
-    );
+    final base64Image = base64Encode(imageBytes);
 
     return await apiClient.post(
       '/tables/$tableId/scan',
       body: {
         'image': base64Image,
+        'mimeType': mimeType,
       },
       parser: (data) {
         // API returns { message: 'Bill scanned successfully', itemCount: N }
