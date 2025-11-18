@@ -25,7 +25,7 @@ class RoutePaths {
   static const String home = '/home';
   static const String terms = '/terms';
   static const String settings = '/settings';
-  static const String activeTables = '/tables';
+  // static const String activeTables = '/tables';
   static const String createTable = '/table/create';
   static const String table = '/table/:code';
   static const String scanBill = '/table/:tableId/scan';

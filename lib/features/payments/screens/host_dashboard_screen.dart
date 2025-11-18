@@ -40,7 +40,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         title: const Text('Collection Dashboard'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/tables'),
+          onPressed: () => context.go('/home'),
         ),
         actions: [
           PopupMenuButton<String>(
@@ -593,7 +593,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           ),
         );
         // Navigate to tables list after settling
-        context.go('/tables');
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {
@@ -713,7 +713,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           ),
         );
         // Navigate to tables list after cancelling
-        context.go('/tables');
+        context.go('/home');
       }
     } catch (e) {
       if (mounted) {
