@@ -150,12 +150,16 @@ class TableRepository {
     );
   }
 
-  Future<List<BillItem>> scanBill({
+  /// Scans a bill image and adds items to the table
+  /// Returns the number of items detected
+  /// Note: Items are saved to the table on the backend,
+  /// use getTableData() to fetch the updated items
+  Future<int> scanBill({
     required String tableId,
     required Uint8List imageBytes,
   }) async {
+    // TODO: Implement multipart form data upload
     // For now, we'll use a simple base64 encoding
-    // In production, you might use multipart form data
     final base64Image = Uri.encodeComponent(
       String.fromCharCodes(imageBytes),
     );
@@ -166,10 +170,8 @@ class TableRepository {
         'image': base64Image,
       },
       parser: (data) {
-        final items = data['items'] as List<dynamic>;
-        return items
-            .map((e) => BillItem.fromJson(e as Map<String, dynamic>))
-            .toList();
+        // API returns { message: 'Bill scanned successfully', itemCount: N }
+        return (data['itemCount'] as num?)?.toInt() ?? 0;
       },
     );
   }

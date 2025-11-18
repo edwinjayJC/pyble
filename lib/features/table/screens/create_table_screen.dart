@@ -48,9 +48,13 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
       final repository = ref.read(tableRepositoryProvider);
       final activeTables = await repository.getActiveTables();
 
-      // Only check for tables where the user is the HOST
+      // Only check for ACTIVE tables where the user is the HOST
+      // (claiming or collecting status, not settled or cancelled)
       final hostedTable = activeTables
-          .where((table) => table.hostUserId == currentUser.id)
+          .where((table) =>
+              table.hostUserId == currentUser.id &&
+              (table.status == TableStatus.claiming ||
+                  table.status == TableStatus.collecting))
           .firstOrNull;
 
       if (mounted) {
@@ -74,7 +78,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Check if user is already hosting a table
+      // Check if user is already hosting an ACTIVE table
       final currentUser = ref.read(currentUserProvider);
       if (currentUser == null) {
         throw Exception('User not authenticated');
@@ -82,12 +86,16 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
 
       final repository = ref.read(tableRepositoryProvider);
       final activeTables = await repository.getActiveTables();
+      // Only check for ACTIVE tables (claiming or collecting)
       final hostedTable = activeTables
-          .where((table) => table.hostUserId == currentUser.id)
+          .where((table) =>
+              table.hostUserId == currentUser.id &&
+              (table.status == TableStatus.claiming ||
+                  table.status == TableStatus.collecting))
           .firstOrNull;
 
       if (hostedTable != null && mounted) {
-        // Show dialog - user is already hosting a table
+        // Show dialog - user is already hosting an active table
         final shouldContinue = await _showActiveTableDialog(hostedTable);
         if (!shouldContinue) {
           setState(() => _isLoading = false);

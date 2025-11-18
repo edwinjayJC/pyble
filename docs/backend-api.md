@@ -105,6 +105,25 @@ Endpoints for creating, joining, and managing `SplitTable` sessions.
 * **Success Response:** `200 OK`
   * **Body:** `[ SplitTable, SplitTable, ... ]`
 
+### `PUT /tables/:tableId/lock`
+* **Action:** (Phase 3) (Host-only) Locks the table and changes status from `claiming` to `collecting`. Once locked, no more items can be claimed.
+* **Success Response:** `200 OK`
+  * **Body:** The updated `SplitTable` document with `status: 'collecting'`.
+* **Error Response:** `403 Forbidden` (if not host), `409 Conflict` (if not all items are claimed).
+
+### `PUT /tables/:tableId/settle`
+* **Action:** (Phase 4) (Host-only) Settles/closes the table and changes status to `settled`.
+* **Pre-condition:** All participants must have paid.
+* **Success Response:** `200 OK`
+  * **Body:** The updated `SplitTable` document with `status: 'settled'`.
+* **Error Response:** `403 Forbidden` (if not host), `409 Conflict` (if not all participants have paid).
+
+### `PUT /tables/:tableId/cancel`
+* **Action:** (Phase 4) (Host-only) Cancels the table and changes status to `cancelled`.
+* **Success Response:** `200 OK`
+  * **Body:** None.
+* **Error Response:** `403 Forbidden` (if not host).
+
 ---
 
 ## 4. Resource: Bill Management

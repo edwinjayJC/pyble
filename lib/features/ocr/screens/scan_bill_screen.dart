@@ -22,7 +22,6 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
   Uint8List? _imageBytes;
   bool _isScanning = false;
   bool _scanComplete = false;
-  final List<BillItem> _scannedItems = [];
 
   // Manual entry
   final _descriptionController = TextEditingController();
@@ -82,23 +81,22 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
 
     try {
       final repository = ref.read(tableRepositoryProvider);
-      final items = await repository.scanBill(
+      final itemCount = await repository.scanBill(
         tableId: widget.tableId,
         imageBytes: _imageBytes!,
       );
 
       setState(() {
-        _scannedItems.addAll(items);
         _scanComplete = true;
       });
 
-      // Refresh table data
+      // Refresh table data to get the scanned items
       await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Found ${items.length} items'),
+            content: Text('Found $itemCount items'),
             backgroundColor: AppColors.lushGreen,
           ),
         );

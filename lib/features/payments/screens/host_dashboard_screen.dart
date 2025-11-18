@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../table/providers/table_provider.dart';
@@ -32,14 +31,36 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final tableAsync = ref.watch(currentTableProvider);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Collection Dashboard'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/tables'),
         ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'cancel') {
+                _cancelTable();
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'cancel',
+                child: Row(
+                  children: [
+                    Icon(Icons.cancel, color: colorScheme.error, size: 20),
+                    const SizedBox(width: AppSpacing.sm),
+                    const Text('Cancel Table'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: tableAsync.when(
         data: (tableData) {
@@ -53,8 +74,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline,
-                  size: 48, color: AppColors.warmSpice),
+              Icon(Icons.error_outline,
+                  size: 48, color: colorScheme.error),
               const SizedBox(height: AppSpacing.md),
               Text('Error: $error'),
               const SizedBox(height: AppSpacing.md),
@@ -144,12 +165,20 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     required int owingCount,
     required int totalParticipants,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Define semantic colors
+    final successColor = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+    final warningColor = colorScheme.error;
+    final neutralColor = colorScheme.onSurface.withOpacity(0.3);
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.lightCrust,
+        color: colorScheme.surface,
         borderRadius: AppRadius.allMd,
-        border: Border.all(color: AppColors.paleGray),
+        border: Border.all(color: colorScheme.onSurface.withOpacity(0.12)),
       ),
       child: Column(
         children: [
@@ -159,12 +188,12 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               _buildStatColumn(
                 'Collected',
                 '\$${totalCollected.toStringAsFixed(2)}',
-                AppColors.lushGreen,
+                successColor,
               ),
               _buildStatColumn(
                 'Outstanding',
                 '\$${totalOwed.toStringAsFixed(2)}',
-                AppColors.warmSpice,
+                warningColor,
               ),
             ],
           ),
@@ -174,9 +203,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildCountBadge('Paid', paidCount, AppColors.lushGreen),
-              _buildCountBadge('Pending', pendingCount, AppColors.warmSpice),
-              _buildCountBadge('Owing', owingCount, AppColors.paleGray),
+              _buildCountBadge('Paid', paidCount, successColor),
+              _buildCountBadge('Pending', pendingCount, warningColor),
+              _buildCountBadge('Owing', owingCount, neutralColor),
             ],
           ),
         ],
@@ -185,13 +214,15 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   }
 
   Widget _buildStatColumn(String label, String value, Color color) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.darkFig.withOpacity(0.7),
+                color: colorScheme.onSurface.withOpacity(0.7),
               ),
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -236,25 +267,33 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   }
 
   Widget _buildParticipantRow(BuildContext context, Participant participant) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     Color statusColor;
     String statusText;
     IconData statusIcon;
     bool showConfirmButton = false;
 
+    // Define semantic colors
+    final successColor = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+    final warningColor = colorScheme.error;
+    final neutralColor = colorScheme.onSurface;
+
     switch (participant.paymentStatus) {
       case PaymentStatus.paid:
-        statusColor = AppColors.lushGreen;
+        statusColor = successColor;
         statusText = 'PAID';
         statusIcon = Icons.check_circle;
         break;
       case PaymentStatus.pendingConfirmation:
-        statusColor = AppColors.warmSpice;
+        statusColor = warningColor;
         statusText = 'Awaiting Your Confirmation';
         statusIcon = Icons.pending;
         showConfirmButton = true;
         break;
       case PaymentStatus.owing:
-        statusColor = AppColors.darkFig;
+        statusColor = neutralColor;
         statusText = 'OWES \$${participant.totalOwed.toStringAsFixed(2)}';
         statusIcon = Icons.attach_money;
         break;
@@ -263,9 +302,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.snow,
+        color: colorScheme.surface,
         borderRadius: AppRadius.allMd,
-        border: Border.all(color: AppColors.paleGray),
+        border: Border.all(color: colorScheme.onSurface.withOpacity(0.12)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +314,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               // Avatar
               CircleAvatar(
                 radius: 20,
-                backgroundColor: statusColor.withOpacity(0.2),
+                backgroundColor: statusColor.withOpacity(isDark ? 0.2 : 0.15),
                 child: Text(
                   participant.initials,
                   style: TextStyle(
@@ -300,7 +339,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                       Text(
                         '\$${participant.totalOwed.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.darkFig.withOpacity(0.7),
+                              color: colorScheme.onSurface.withOpacity(0.7),
                             ),
                       ),
                   ],
@@ -331,7 +370,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               child: ElevatedButton(
                 onPressed: () => _confirmPayment(participant),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.lushGreen,
+                  backgroundColor: successColor,
+                  foregroundColor: isDark ? colorScheme.onPrimary : Colors.white,
                 ),
                 child: const Text('Confirm Payment Received'),
               ),
@@ -343,6 +383,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   }
 
   Future<void> _confirmPayment(Participant participant) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final successColor = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -358,7 +402,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.lushGreen,
+              backgroundColor: successColor,
+              foregroundColor: isDark ? colorScheme.onPrimary : Colors.white,
             ),
             child: const Text('Confirm'),
           ),
@@ -382,7 +427,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Payment from ${participant.displayName} confirmed'),
-            backgroundColor: AppColors.lushGreen,
+            backgroundColor: successColor,
           ),
         );
       }
@@ -391,7 +436,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error confirming payment: $e'),
-            backgroundColor: AppColors.warmSpice,
+            backgroundColor: colorScheme.error,
           ),
         );
       }
@@ -399,16 +444,25 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   }
 
   Widget _buildSettleTableButton(BuildContext context, TableData tableData) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final successColor = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+
     return ElevatedButton(
       onPressed: () => _settleTable(),
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.lushGreen,
+        backgroundColor: successColor,
+        foregroundColor: isDark ? colorScheme.onPrimary : Colors.white,
       ),
       child: const Text('Settle Table'),
     );
   }
 
   Future<void> _settleTable() async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final successColor = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -425,7 +479,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.lushGreen,
+              backgroundColor: successColor,
+              foregroundColor: isDark ? colorScheme.onPrimary : Colors.white,
             ),
             child: const Text('Settle'),
           ),
@@ -440,20 +495,75 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Table settled successfully!'),
-            backgroundColor: AppColors.lushGreen,
+          SnackBar(
+            content: const Text('Table settled successfully!'),
+            backgroundColor: successColor,
           ),
         );
-        // Navigate to home after settling
-        context.go('/home');
+        // Navigate to tables list after settling
+        context.go('/tables');
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error settling table: $e'),
-            backgroundColor: AppColors.warmSpice,
+            backgroundColor: colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _cancelTable() async {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Table?'),
+        content: const Text(
+          'Are you sure you want to cancel this table? '
+          'All participants will be notified and this action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
+            child: const Text('Yes, Cancel Table'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      final tableRepo = ref.read(tableRepositoryProvider);
+      await tableRepo.cancelTable(widget.tableId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Table cancelled'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+        // Navigate to tables list after cancelling
+        context.go('/tables');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error cancelling table: $e'),
+            backgroundColor: colorScheme.error,
           ),
         );
       }

@@ -26,74 +26,17 @@ import '../../features/payments/screens/participant_payment_screen.dart';
 import '../../features/payments/screens/payment_webview_screen.dart';
 import '../../features/payments/screens/payment_processing_screen.dart';
 import '../../features/payments/models/payment_record.dart';
+import '../../features/history/screens/history_screen.dart';
+import '../widgets/app_drawer.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userProfile = ref.watch(userProfileProvider);
-
     return Scaffold(
       appBar: AppBar(title: const Text('Pyble')),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(color: Color(0xFFB70043)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.person, size: 30),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    userProfile.valueOrNull?.displayName ?? 'User',
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                  ),
-                  Text(
-                    userProfile.valueOrNull?.email ?? '',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text('History'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push(RoutePaths.history);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.settings),
-              title: const Text('Settings'),
-              onTap: () {
-                Navigator.pop(context);
-                context.push(RoutePaths.settings);
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Color(0xFFD95300)),
-              title: const Text(
-                'Sign Out',
-                style: TextStyle(color: Color(0xFFD95300)),
-              ),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref.read(supabaseClientProvider).auth.signOut();
-              },
-            ),
-          ],
-        ),
-      ),
+      drawer: const AppDrawer(),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -714,17 +657,7 @@ class _ProgressDialog extends StatelessWidget {
   }
 }
 
-class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('History')),
-      body: const Center(child: Text('History Screen - Coming Soon')),
-    );
-  }
-}
+// HistoryScreen is now imported from features/history/screens/history_screen.dart
 
 final routerProvider = Provider<GoRouter>((ref) {
   final isAuthenticated = ref.watch(isAuthenticatedProvider);

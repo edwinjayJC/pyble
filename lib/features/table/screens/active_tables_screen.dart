@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/providers/supabase_provider.dart';
+import '../../../core/widgets/app_drawer.dart';
 import '../providers/table_provider.dart';
 import '../models/table_session.dart';
 
@@ -19,14 +20,25 @@ class ActiveTablesScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Your Tables'),
       ),
+      drawer: const AppDrawer(),
       body: activeTablesAsync.when(
-        data: (tables) => _buildTablesList(
-          context,
-          ref,
-          tables,
-          currentUser?.id,
-          isHostOfActiveTable.valueOrNull ?? false,
-        ),
+        data: (allTables) {
+          // Filter to only show truly active tables (claiming or collecting)
+          // Settled and cancelled tables should appear in history instead
+          final activeTables = allTables
+              .where((table) =>
+                  table.status == TableStatus.claiming ||
+                  table.status == TableStatus.collecting)
+              .toList();
+
+          return _buildTablesList(
+            context,
+            ref,
+            activeTables,
+            currentUser?.id,
+            isHostOfActiveTable.valueOrNull ?? false,
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => Center(
           child: Column(
@@ -69,6 +81,12 @@ class ActiveTablesScreen extends ConsumerWidget {
     String? currentUserId,
     bool isHost,
   ) {
+    // Check if user has any ACTIVE hosted tables (claiming or collecting)
+    final hasActiveHostedTable = tables.any((table) =>
+        table.hostUserId == currentUserId &&
+        (table.status == TableStatus.claiming ||
+            table.status == TableStatus.collecting));
+
     return RefreshIndicator(
       onRefresh: () async {
         ref.refresh(activeTablesProvider);
@@ -77,7 +95,7 @@ class ActiveTablesScreen extends ConsumerWidget {
         slivers: [
           if (tables.isEmpty)
             SliverFillRemaining(
-              child: _buildEmptyState(context, isHost),
+              child: _buildEmptyState(context, hasActiveHostedTable),
             )
           else
             SliverPadding(
@@ -90,12 +108,13 @@ class ActiveTablesScreen extends ConsumerWidget {
                       final isUserHost = table.hostUserId == currentUserId;
                       return _buildTableCard(
                         context,
+                        ref,
                         table,
                         isUserHost,
                       );
                     } else {
                       // Action buttons at the bottom
-                      return _buildActionButtons(context, isHost);
+                      return _buildActionButtons(context, hasActiveHostedTable);
                     }
                   },
                   childCount: tables.length + 1,
@@ -107,7 +126,7 @@ class ActiveTablesScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context, bool isHost) {
+  Widget _buildEmptyState(BuildContext context, bool hasActiveHostedTable) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Center(
@@ -129,14 +148,14 @@ class ActiveTablesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'You don\'t have any active tables.\nCreate a new table or join an existing one.',
+              'You don\'t have any active tables.\nCreate a new table or join an existing one.\n\nCompleted tables can be found in History.',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: colorScheme.onSurface.withOpacity(0.7),
                   ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
-            _buildActionButtons(context, isHost),
+            _buildActionButtons(context, hasActiveHostedTable),
           ],
         ),
       ),
@@ -145,6 +164,7 @@ class ActiveTablesScreen extends ConsumerWidget {
 
   Widget _buildTableCard(
     BuildContext context,
+    WidgetRef ref,
     TableSession table,
     bool isHost,
   ) {
@@ -210,6 +230,31 @@ class ActiveTablesScreen extends ConsumerWidget {
                   ),
                   // Status badge
                   _buildStatusBadge(context, table.status),
+                  // Menu button for hosts
+                  if (isHost && table.status != TableStatus.settled && table.status != TableStatus.cancelled)
+                    PopupMenuButton<String>(
+                      icon: Icon(
+                        Icons.more_vert,
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                      onSelected: (value) {
+                        if (value == 'cancel') {
+                          _cancelTable(context, ref, table);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        PopupMenuItem(
+                          value: 'cancel',
+                          child: Row(
+                            children: [
+                              Icon(Icons.cancel, color: colorScheme.error, size: 20),
+                              const SizedBox(width: AppSpacing.sm),
+                              Text('Cancel Table'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
@@ -309,13 +354,13 @@ class ActiveTablesScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, bool isHost) {
+  Widget _buildActionButtons(BuildContext context, bool hasActiveHostedTable) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (!isHost)
+        if (!hasActiveHostedTable)
           ElevatedButton.icon(
             onPressed: () {
               context.push('/table/create');
@@ -394,6 +439,61 @@ class ActiveTablesScreen extends ConsumerWidget {
         'Dec'
       ];
       return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    }
+  }
+
+  Future<void> _cancelTable(BuildContext context, WidgetRef ref, TableSession table) async {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Table?'),
+        content: Text(
+          'Are you sure you want to cancel "${table.title ?? 'Table ${table.code}'}"? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
+            child: const Text('Yes, Cancel Table'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !context.mounted) return;
+
+    try {
+      final repository = ref.read(tableRepositoryProvider);
+      await repository.cancelTable(table.id);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Table "${table.title ?? table.code}" cancelled'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+        // Refresh the active tables list
+        ref.refresh(activeTablesProvider);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error cancelling table: $e'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+      }
     }
   }
 }

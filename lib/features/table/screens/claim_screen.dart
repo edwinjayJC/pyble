@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pyble/core/theme/app_colors.dart';
 import '../../../core/providers/supabase_provider.dart';
 import '../providers/table_provider.dart';
 import '../widgets/bill_item_row.dart';

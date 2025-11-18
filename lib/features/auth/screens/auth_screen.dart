@@ -26,16 +26,16 @@ class AuthScreen extends ConsumerWidget {
                     children: [
                       const SizedBox(height: 48),
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 18.0),
+                        padding: const EdgeInsets.symmetric(vertical: 14.0),
                         child: Center(
                           child: Image.asset(
-                            'assets/images/pie.png',
+                            'assets/images/pyblelogo.png',
                             height: 120,
                           ),
                         ),
                       ),
                       Text(
-                        'Pyble',
+                        'pyble',
                         style: Theme.of(context).textTheme.displayLarge
                             ?.copyWith(
                               color: AppColors.darkFig,
@@ -44,9 +44,11 @@ class AuthScreen extends ConsumerWidget {
                               fontFamily: "Quip",
                             ),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
+                      Container(width: 150, child: const Divider(color: AppColors.paleGray)),
+                      const SizedBox(height: 4),
                       Text(
-                        'Pay Your Piece of The Pie',
+                        'Pay Your Piece',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppColors.darkFig.withOpacity(0.7),
                         ),
