@@ -55,6 +55,7 @@ dependencies:
   google_fonts: ^6.2.0
   uuid: ^4.4.0
   image_picker: ^1.1.0
+  email_validator: ^2.1.17
 
 dev_dependencies:
   flutter_test:

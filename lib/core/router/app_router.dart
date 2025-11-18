@@ -13,6 +13,7 @@ import '../../features/table/models/table_session.dart';
 import '../../features/table/models/participant.dart';
 import '../../features/auth/providers/user_profile_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
+import '../../features/auth/screens/email_verification_pending_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
 import '../../features/table/screens/create_table_screen.dart';
 import '../../features/table/screens/host_invite_screen.dart';
@@ -33,17 +34,13 @@ class HomeScreen extends ConsumerWidget {
     final userProfile = ref.watch(userProfileProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pyble'),
-      ),
+      appBar: AppBar(title: const Text('Pyble')),
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
-              decoration: const BoxDecoration(
-                color: Color(0xFFB70043),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFFB70043)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -56,17 +53,11 @@ class HomeScreen extends ConsumerWidget {
                   const SizedBox(height: 10),
                   Text(
                     userProfile.valueOrNull?.displayName ?? 'User',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
                   ),
                   Text(
                     userProfile.valueOrNull?.email ?? '',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                 ],
               ),
@@ -216,8 +207,9 @@ class SettingsScreen extends ConsumerWidget {
                 title: const Text('Dark mode'),
                 subtitle: const Text('Reduce glare with a darker palette.'),
                 value: themeMode == ThemeMode.dark,
-                onChanged: (isDark) => notifier
-                    .setThemeMode(isDark ? ThemeMode.dark : ThemeMode.light),
+                onChanged: (isDark) => notifier.setThemeMode(
+                  isDark ? ThemeMode.dark : ThemeMode.light,
+                ),
               ),
             ],
           ),
@@ -260,8 +252,11 @@ class SettingsScreen extends ConsumerWidget {
                     color: colorScheme.error.withValues(alpha: 0.85),
                   ),
                 ),
-                trailing: Icon(Icons.arrow_forward_ios,
-                    color: colorScheme.error.withValues(alpha: 0.8), size: 16),
+                trailing: Icon(
+                  Icons.arrow_forward_ios,
+                  color: colorScheme.error.withValues(alpha: 0.8),
+                  size: 16,
+                ),
                 onTap: () => _handleDeleteAccountTap(context, ref),
               ),
             ],
@@ -281,7 +276,8 @@ class SettingsScreen extends ConsumerWidget {
       barrierDismissible: false,
       builder: (_) => const _ProgressDialog(
         title: 'Checking account',
-        message: 'Making sure every table is squared away before closing your account.',
+        message:
+            'Making sure every table is squared away before closing your account.',
       ),
     );
 
@@ -376,15 +372,13 @@ class SettingsScreen extends ConsumerWidget {
       if (!context.mounted) return;
 
       final message = _describeAccountDeletionError(error);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
-  Future<List<_DeletionBlocker>> _collectDeletionBlockers(
-    WidgetRef ref,
-  ) async {
+  Future<List<_DeletionBlocker>> _collectDeletionBlockers(WidgetRef ref) async {
     final blockers = <_DeletionBlocker>[];
     final tableRepository = ref.read(tableRepositoryProvider);
     final currentUser = ref.read(currentUserProvider);
@@ -393,7 +387,8 @@ class SettingsScreen extends ConsumerWidget {
     if (activeTable == null) return blockers;
 
     final tableName = _formatTableName(activeTable);
-    final isTableOpen = activeTable.status != TableStatus.settled &&
+    final isTableOpen =
+        activeTable.status != TableStatus.settled &&
         activeTable.status != TableStatus.cancelled;
 
     if (isTableOpen) {
@@ -438,15 +433,17 @@ class SettingsScreen extends ConsumerWidget {
       );
     }
 
-    final isHost = currentUserId != null &&
-        currentUserId == tableData.table.hostUserId;
+    final isHost =
+        currentUserId != null && currentUserId == tableData.table.hostUserId;
     final othersStillPaying = unpaidParticipants
         .where((participant) => participant != selfParticipant)
         .toList();
 
     if (othersStillPaying.isNotEmpty && isHost) {
       final names = _formatNameList(
-        othersStillPaying.map((participant) => participant.displayName).toList(),
+        othersStillPaying
+            .map((participant) => participant.displayName)
+            .toList(),
       );
       blockers.add(
         _DeletionBlocker(
@@ -501,8 +498,9 @@ class SettingsScreen extends ConsumerWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   blocker.message,
-                                  style:
-                                      Theme.of(dialogContext).textTheme.bodyMedium,
+                                  style: Theme.of(
+                                    dialogContext,
+                                  ).textTheme.bodyMedium,
                                 ),
                               ],
                             ),
@@ -554,7 +552,8 @@ class SettingsScreen extends ConsumerWidget {
     if (error is ApiException) {
       final status = error.statusCode;
       final serverMessage = _extractServerMessage(error.data);
-      final fallbackMessage = (error.message.isNotEmpty &&
+      final fallbackMessage =
+          (error.message.isNotEmpty &&
               error.message.toLowerCase() != 'request failed')
           ? error.message
           : null;
@@ -631,9 +630,9 @@ class SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final titleStyle = Theme.of(context).textTheme.titleMedium?.copyWith(
-          fontWeight: FontWeight.w700,
-        );
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700);
     final subtitleStyle = Theme.of(context).textTheme.bodySmall;
 
     return Column(
@@ -658,11 +657,7 @@ class SettingsSection extends StatelessWidget {
           child: Column(
             children: [
               for (var i = 0; i < children.length; i++) ...[
-                if (i > 0)
-                  Divider(
-                    height: 1,
-                    color: dividerColor,
-                  ),
+                if (i > 0) Divider(height: 1, color: dividerColor),
                 children[i],
               ],
             ],
@@ -691,10 +686,7 @@ class _ProgressDialog extends StatelessWidget {
   final String title;
   final String message;
 
-  const _ProgressDialog({
-    required this.title,
-    required this.message,
-  });
+  const _ProgressDialog({required this.title, required this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -712,9 +704,7 @@ class _ProgressDialog extends StatelessWidget {
                 child: CircularProgressIndicator(strokeWidth: 3),
               ),
               const SizedBox(width: 16),
-              Flexible(
-                child: Text(message),
-              ),
+              Flexible(child: Text(message)),
             ],
           ),
         ],
@@ -745,19 +735,20 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) async {
       final isAuthRoute = state.matchedLocation == RoutePaths.auth;
       final isOnboardingRoute = state.matchedLocation == RoutePaths.onboarding;
+      final isVerifyRoute = state.matchedLocation == RoutePaths.verifyEmail;
       final isTermsRoute = state.matchedLocation == RoutePaths.terms;
 
       // Check if tutorial has been seen
       final prefs = await SharedPreferences.getInstance();
       final tutorialSeen = prefs.getBool(AppConstants.tutorialSeenKey) ?? false;
 
-      if (!tutorialSeen && !isOnboardingRoute) {
+      if (!tutorialSeen && !isOnboardingRoute && !isVerifyRoute) {
         return RoutePaths.onboarding;
       }
 
       // Not authenticated
       if (!isAuthenticated) {
-        if (isAuthRoute || isOnboardingRoute) return null;
+        if (isAuthRoute || isOnboardingRoute || isVerifyRoute) return null;
         return RoutePaths.auth;
       }
 
@@ -804,6 +795,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.history,
         name: RouteNames.history,
         builder: (context, state) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.verifyEmail,
+        name: RouteNames.verifyEmail,
+        builder: (context, state) {
+          final email =
+              state.uri.queryParameters['email'] ?? 'your email address';
+          return EmailVerificationPendingScreen(email: email);
+        },
       ),
       GoRoute(
         path: RoutePaths.createTable,
