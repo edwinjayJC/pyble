@@ -9,6 +9,7 @@ import '../providers/supabase_provider.dart';
 import '../../features/auth/providers/user_profile_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
+import '../../features/table/screens/active_tables_screen.dart';
 import '../../features/table/screens/create_table_screen.dart';
 import '../../features/table/screens/host_invite_screen.dart';
 import '../../features/table/screens/join_table_screen.dart';
@@ -123,8 +124,8 @@ class HomeScreen extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => context.push(RoutePaths.createTable),
-                  child: const Text('Create Table'),
+                  onPressed: () => context.push(RoutePaths.activeTables),
+                  child: const Text('View My Tables'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -280,6 +281,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.history,
         name: RouteNames.history,
         builder: (context, state) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.activeTables,
+        name: RouteNames.activeTables,
+        builder: (context, state) => const ActiveTablesScreen(),
       ),
       GoRoute(
         path: RoutePaths.createTable,

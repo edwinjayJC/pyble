@@ -4,6 +4,7 @@ class RouteNames {
   static const String home = 'home';
   static const String terms = 'terms';
   static const String settings = 'settings';
+  static const String activeTables = 'active-tables';
   static const String createTable = 'create-table';
   static const String table = 'table';
   static const String scanBill = 'scan-bill';
@@ -23,11 +24,12 @@ class RoutePaths {
   static const String home = '/home';
   static const String terms = '/terms';
   static const String settings = '/settings';
-  static const String createTable = '/create-table';
+  static const String activeTables = '/tables';
+  static const String createTable = '/table/create';
   static const String table = '/table/:code';
   static const String scanBill = '/table/:tableId/scan';
   static const String inviteParticipants = '/table/:tableId/invite';
-  static const String joinTable = '/join';
+  static const String joinTable = '/table/join';
   static const String claimTable = '/table/:tableId/claim';
   static const String hostDashboard = '/table/:tableId/dashboard';
   static const String participantPayment = '/table/:tableId/payment';

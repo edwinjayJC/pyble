@@ -80,19 +80,27 @@ class TableRepository {
 
   TableRepository({required this.apiClient});
 
-  Future<TableSession?> getActiveTable() async {
+  Future<List<TableSession>> getActiveTables() async {
     try {
       return await apiClient.get(
         '/tables/active',
         parser: (data) {
-          if (data == null) return null;
-          return TableSession.fromJson(data as Map<String, dynamic>);
+          if (data == null) return [];
+          final tables = data as List<dynamic>;
+          return tables
+              .map((e) => TableSession.fromJson(e as Map<String, dynamic>))
+              .toList();
         },
       );
     } on ApiException catch (e) {
-      if (e.statusCode == 404) return null;
+      if (e.statusCode == 404) return [];
       rethrow;
     }
+  }
+
+  Future<TableSession?> getActiveTable() async {
+    final tables = await getActiveTables();
+    return tables.isEmpty ? null : tables.first;
   }
 
   Future<TableSession> createTable({String? title}) async {

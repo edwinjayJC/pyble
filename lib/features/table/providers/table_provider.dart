@@ -322,3 +322,18 @@ final tableStatusProvider = Provider<TableStatus?>((ref) {
   final tableData = ref.watch(currentTableProvider).valueOrNull;
   return tableData?.table.status;
 });
+
+// Active tables list
+final activeTablesProvider = FutureProvider<List<TableSession>>((ref) async {
+  final repository = ref.watch(tableRepositoryProvider);
+  return await repository.getActiveTables();
+});
+
+// Check if current user is a host of any active table
+final isHostOfActiveTableProvider = FutureProvider<bool>((ref) async {
+  final currentUser = ref.watch(currentUserProvider);
+  if (currentUser == null) return false;
+
+  final activeTables = await ref.watch(activeTablesProvider.future);
+  return activeTables.any((table) => table.hostUserId == currentUser.id);
+});

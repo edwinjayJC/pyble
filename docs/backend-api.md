@@ -100,6 +100,11 @@ Endpoints for creating, joining, and managing `SplitTable` sessions.
     * **Body:** `{ "table": SplitTable, "signalRNegotiationPayload": { ... } }`
 * **Error Response:** `404 Not Found` (invalid code), `403 Forbidden` (table is locked/settled).
 
+### `GET /tables/active`
+* **Action:** (Phase 4) Gets a list of all `SplitTable` documents where the current user is a participant or host and the `status` is not `settled`.
+* **Success Response:** `200 OK`
+  * **Body:** `[ SplitTable, SplitTable, ... ]`
+
 ---
 
 ## 4. Resource: Bill Management
