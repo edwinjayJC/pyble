@@ -329,6 +329,31 @@ final activeTablesProvider = FutureProvider<List<TableSession>>((ref) async {
   return await repository.getActiveTables();
 });
 
+// History tables list (settled and cancelled tables)
+final historyTablesProvider = FutureProvider<List<TableSession>>((ref) async {
+  final repository = ref.watch(tableRepositoryProvider);
+
+  // Fetch both history (settled) and active (which may include cancelled) tables
+  final historyTables = await repository.getHistoryTables();
+  final activeTables = await repository.getActiveTables();
+
+  // Filter active tables to only include cancelled ones
+  final cancelledTables = activeTables
+      .where((table) => table.status == TableStatus.cancelled)
+      .toList();
+
+  // Combine settled and cancelled tables
+  final allHistoryTables = [...historyTables, ...cancelledTables];
+
+  // Remove duplicates (in case a table appears in both lists)
+  final uniqueTables = <String, TableSession>{};
+  for (final table in allHistoryTables) {
+    uniqueTables[table.id] = table;
+  }
+
+  return uniqueTables.values.toList();
+});
+
 // Check if current user is a host of any active table
 final isHostOfActiveTableProvider = FutureProvider<bool>((ref) async {
   final currentUser = ref.watch(currentUserProvider);

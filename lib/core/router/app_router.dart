@@ -27,61 +27,8 @@ import '../../features/payments/screens/payment_webview_screen.dart';
 import '../../features/payments/screens/payment_processing_screen.dart';
 import '../../features/payments/models/payment_record.dart';
 import '../../features/history/screens/history_screen.dart';
+import '../../features/home/screens/home_screen.dart';
 import '../widgets/app_drawer.dart';
-
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Pyble')),
-      drawer: const AppDrawer(),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.restaurant_menu,
-                size: 80,
-                color: Color(0xFFB70043),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Split bills easily',
-                style: Theme.of(context).textTheme.headlineLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Create a table to start splitting a bill with friends',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => context.push(RoutePaths.activeTables),
-                  child: const Text('View My Tables'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () => context.push(RoutePaths.joinTable),
-                  child: const Text('Join Table'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 class TermsScreen extends ConsumerWidget {
   const TermsScreen({super.key});
@@ -730,11 +677,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: RouteNames.history,
         builder: (context, state) => const HistoryScreen(),
       ),
-      GoRoute(
-        path: RoutePaths.activeTables,
-        name: RouteNames.activeTables,
-        builder: (context, state) => const ActiveTablesScreen(),
-      ),
+      // GoRoute(
+      //   path: RoutePaths.activeTables,
+      //   name: RouteNames.activeTables,
+      //   builder: (context, state) => const ActiveTablesScreen(),
+      // ),
       GoRoute(
         path: RoutePaths.verifyEmail,
         name: RouteNames.verifyEmail,

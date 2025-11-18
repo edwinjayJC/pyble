@@ -11,22 +11,15 @@ class HistoryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeTablesAsync = ref.watch(activeTablesProvider);
+    final historyTablesAsync = ref.watch(historyTablesProvider);
     final currentUser = ref.watch(currentUserProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('History'),
       ),
-      body: activeTablesAsync.when(
-        data: (allTables) {
-          // Filter to only show settled and cancelled tables
-          final historyTables = allTables
-              .where((table) =>
-                  table.status == TableStatus.settled ||
-                  table.status == TableStatus.cancelled)
-              .toList();
-
+      body: historyTablesAsync.when(
+        data: (historyTables) {
           // Sort by most recent first
           historyTables.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
@@ -36,7 +29,7 @@ class HistoryScreen extends ConsumerWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              ref.refresh(activeTablesProvider);
+              ref.refresh(historyTablesProvider);
             },
             child: ListView.separated(
               padding: AppSpacing.screenPadding,
@@ -75,7 +68,7 @@ class HistoryScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.lg),
               ElevatedButton(
-                onPressed: () => ref.refresh(activeTablesProvider),
+                onPressed: () => ref.refresh(historyTablesProvider),
                 child: const Text('Retry'),
               ),
             ],

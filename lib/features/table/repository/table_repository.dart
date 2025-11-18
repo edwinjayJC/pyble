@@ -103,6 +103,24 @@ class TableRepository {
     return tables.isEmpty ? null : tables.first;
   }
 
+  Future<List<TableSession>> getHistoryTables() async {
+    try {
+      return await apiClient.get(
+        '/tables/history',
+        parser: (data) {
+          if (data == null) return [];
+          final tables = data as List<dynamic>;
+          return tables
+              .map((e) => TableSession.fromJson(e as Map<String, dynamic>))
+              .toList();
+        },
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return [];
+      rethrow;
+    }
+  }
+
   Future<TableSession> createTable({String? title}) async {
     return await apiClient.post(
       '/tables',
