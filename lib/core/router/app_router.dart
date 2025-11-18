@@ -478,7 +478,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   String _formatCurrency(double value) {
-    return '\$${value.toStringAsFixed(2)}';
+    return '${AppConstants.currencySymbol}${value.toStringAsFixed(2)}';
   }
 
   String _formatNameList(List<String> names) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/app_constants.dart';
 import '../models/bill_item.dart';
 import '../models/participant.dart';
 
@@ -56,7 +57,7 @@ class BillItemRow extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '\$${item.price.toStringAsFixed(2)}',
+                    '${AppConstants.currencySymbol}${item.price.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: AppColors.deepBerry,
@@ -72,7 +73,7 @@ class BillItemRow extends StatelessWidget {
                     const Spacer(),
                     if (item.claimantsCount > 1)
                       Text(
-                        '\$${item.splitAmount.toStringAsFixed(2)} each',
+                        '${AppConstants.currencySymbol}${item.splitAmount.toStringAsFixed(2)} each',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.darkFig.withOpacity(0.7),
                             ),

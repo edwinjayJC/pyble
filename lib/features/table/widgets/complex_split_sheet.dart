@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pyble/core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../models/bill_item.dart';
 import '../models/participant.dart';
@@ -70,7 +71,7 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                 ),
               ),
               Text(
-                '\$${widget.item.price.toStringAsFixed(2)}',
+                '${AppConstants.currencySymbol}${widget.item.price.toStringAsFixed(2)}',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: AppColors.deepBerry,
@@ -114,7 +115,7 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                   ),
                   subtitle: isSelected && _selectedUserIds.isNotEmpty
                       ? Text(
-                          '\$${_splitAmount.toStringAsFixed(2)}',
+                          '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)}',
                           style: TextStyle(
                             color: AppColors.deepBerry.withOpacity(0.8),
                             fontWeight: FontWeight.w500,
@@ -159,7 +160,7 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                     ),
                   ),
                   Text(
-                    '\$${_splitAmount.toStringAsFixed(2)} each',
+                    '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)} each',
                     style: const TextStyle(
                       color: AppColors.deepBerry,
                       fontWeight: FontWeight.bold,

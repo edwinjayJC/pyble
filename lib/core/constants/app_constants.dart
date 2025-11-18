@@ -7,9 +7,11 @@ class AppConstants {
   // API Configuration
   // TODO: Replace with actual Azure Function URLs
   static const String apiBaseUrl = 'https://pyble-dev-functions-dcb7dfhagxg3grcv.southafricanorth-01.azurewebsites.net/api';
+  // static const String apiBaseUrl = 'http://10.0.2.2:7071/api';
+
 
   // Deep Link Configuration
-  static const String appScheme = 'pyble';
+  static const String appScheme = 'com.pyble.pyble';
   static const String joinPath = 'join';
 
   // App Info
@@ -18,6 +20,7 @@ class AppConstants {
 
   // Payment
   static const double appFeePercentage = 0.04; // 4% fee
+  static const String currencySymbol = 'R'; // ZAR (South African Rand)
 
   // Polling Intervals (milliseconds)
   static const int tablePollingInterval = 3000;

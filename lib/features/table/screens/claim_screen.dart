@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pyble/core/theme/app_colors.dart';
 import '../../../core/providers/supabase_provider.dart';
+import '../../../core/constants/app_constants.dart';
 import '../providers/table_provider.dart';
 import '../widgets/bill_item_row.dart';
 import '../widgets/complex_split_sheet.dart';
@@ -247,14 +248,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                     _buildSummaryRow(
                       context,
                       'Subtotal',
-                      '\$${tableData.items.fold(0.0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
+                      '${AppConstants.currencySymbol}${tableData.items.fold(0.0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
                     ),
                     if (currentUser != null) ...[
                       const Divider(height: 16),
                       _buildSummaryRow(
                         context,
                         'Your Total',
-                        '\$${_calculateUserTotal(tableData.items, currentUser.id).toStringAsFixed(2)}',
+                        '${AppConstants.currencySymbol}${_calculateUserTotal(tableData.items, currentUser.id).toStringAsFixed(2)}',
                         isBold: true,
                       ),
                     ],
@@ -540,7 +541,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                     ),
                   ),
                   title: Text(p.displayName),
-                  subtitle: Text('\$${p.totalOwed.toStringAsFixed(2)} owed'),
+                  subtitle: Text('${AppConstants.currencySymbol}${p.totalOwed.toStringAsFixed(2)} owed'),
                   trailing: p.userId == tableData.table.hostUserId
                       ? Chip(
                           label: const Text('Host'),

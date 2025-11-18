@@ -146,7 +146,7 @@ class _ParticipantPaymentScreenState
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Payment of \$${participant.totalOwed.toStringAsFixed(2)} confirmed',
+              'Payment of ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)} confirmed',
               style: Theme.of(context).textTheme.bodyLarge,
               textAlign: TextAlign.center,
             ),
@@ -194,7 +194,7 @@ class _ParticipantPaymentScreenState
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'You marked your payment of \$${participant.totalOwed.toStringAsFixed(2)} as paid outside the app.',
+              'You marked your payment of ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)} as paid outside the app.',
               style: Theme.of(context).textTheme.bodyLarge,
               textAlign: TextAlign.center,
             ),
@@ -249,7 +249,7 @@ class _ParticipantPaymentScreenState
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  '\$${amount.toStringAsFixed(2)}',
+                  '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}',
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
                         color: AppColors.deepBerry,
                         fontWeight: FontWeight.bold,
@@ -279,10 +279,10 @@ class _ParticipantPaymentScreenState
             color: AppColors.deepBerry,
             isPrimary: true,
             details: [
-              _buildFeeRow('Amount', '\$${amount.toStringAsFixed(2)}'),
-              _buildFeeRow('Service Fee (4%)', '\$${fee.toStringAsFixed(2)}'),
+              _buildFeeRow('Amount', '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}'),
+              _buildFeeRow('Service Fee (4%)', '${AppConstants.currencySymbol}${fee.toStringAsFixed(2)}'),
               const Divider(),
-              _buildFeeRow('Total', '\$${totalWithFee.toStringAsFixed(2)}',
+              _buildFeeRow('Total', '${AppConstants.currencySymbol}${totalWithFee.toStringAsFixed(2)}',
                   isBold: true),
             ],
             onTap: _isProcessing ? null : () => _initiateInAppPayment(amount),
@@ -488,7 +488,7 @@ class _ParticipantPaymentScreenState
       builder: (context) => AlertDialog(
         title: const Text('Mark as Paid Outside'),
         content: Text(
-          'By marking this as paid outside, you confirm that you have paid \$${participant.totalOwed.toStringAsFixed(2)} to the host through another method (cash, bank transfer, etc.).\n\nThe host will need to confirm receipt before you are marked as paid.',
+          'By marking this as paid outside, you confirm that you have paid ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)} to the host through another method (cash, bank transfer, etc.).\n\nThe host will need to confirm receipt before you are marked as paid.',
         ),
         actions: [
           TextButton(
@@ -511,7 +511,6 @@ class _ParticipantPaymentScreenState
       final paymentRepo = ref.read(paymentRepositoryProvider);
       await paymentRepo.markPaidOutside(
         tableId: widget.tableId,
-        participantId: participant.id,
       );
 
       // Reload table data to update status

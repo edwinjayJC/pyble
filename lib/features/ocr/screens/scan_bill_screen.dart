@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:pyble/core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../table/providers/table_provider.dart';
@@ -199,7 +200,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                 controller: _priceController,
                 decoration: const InputDecoration(
                   labelText: 'Price',
-                  prefixText: '\$ ',
+                  prefixText: '${AppConstants.currencySymbol} ',
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
@@ -288,7 +289,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
               controller: _priceController,
               decoration: const InputDecoration(
                 labelText: 'Total Amount',
-                prefixText: '\$ ',
+                prefixText: '${AppConstants.currencySymbol} ',
               ),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
@@ -450,7 +451,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                           return ListTile(
                             title: Text(item.description),
                             trailing: Text(
-                              '\$${item.price.toStringAsFixed(2)}',
+                              '${AppConstants.currencySymbol}${item.price.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
@@ -472,7 +473,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           Text(
-                            '\$${items.fold<double>(0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
+                            '${AppConstants.currencySymbol}${items.fold<double>(0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
                             style: Theme.of(context)
                                 .textTheme
                                 .headlineMedium

@@ -34,10 +34,9 @@ class PaymentRepository {
   /// Mark payment as paid outside the app (POA flow)
   Future<void> markPaidOutside({
     required String tableId,
-    required String participantId,
   }) async {
-    await apiClient.put(
-      '/tables/$tableId/participants/$participantId/mark-pending',
+    await apiClient.post(
+      '/tables/$tableId/mark-paid-outside',
       parser: (_) {},
     );
   }
@@ -45,10 +44,13 @@ class PaymentRepository {
   /// Host confirms they received payment (for POA)
   Future<void> confirmPayment({
     required String tableId,
-    required String participantId,
+    required String participantUserId,
   }) async {
-    await apiClient.put(
-      '/tables/$tableId/participants/$participantId/confirm-payment',
+    await apiClient.post(
+      '/tables/$tableId/confirm-payment',
+      body: {
+        'participantUserId': participantUserId,
+      },
       parser: (_) {},
     );
   }

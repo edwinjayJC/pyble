@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_radius.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../table/models/participant.dart';
 
 class ParticipantStatusRow extends StatelessWidget {
@@ -86,7 +87,7 @@ class ParticipantStatusRow extends StatelessWidget {
                       ],
                     ),
                     Text(
-                      '\$${participant.totalOwed.toStringAsFixed(2)}',
+                      '${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                             color: AppColors.darkFig.withOpacity(0.7),
                           ),
@@ -254,7 +255,7 @@ class PaymentSummaryCard extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          '\$${amount.toStringAsFixed(2)}',
+          '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: color,
                 fontWeight: FontWeight.bold,

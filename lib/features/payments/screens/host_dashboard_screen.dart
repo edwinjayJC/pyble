@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pyble/core/constants/app_constants.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_radius.dart';
+import '../../../core/providers/supabase_provider.dart';
 import '../../table/providers/table_provider.dart';
 import '../../table/models/participant.dart';
 import '../../table/repository/table_repository.dart';
@@ -94,6 +96,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
   Widget _buildDashboard(BuildContext context, TableData tableData) {
     final participants = tableData.participants;
+    final currentUser = ref.watch(currentUserProvider);
+    final hostParticipant = participants.firstWhere(
+      (p) => p.userId == tableData.table.hostUserId,
+      orElse: () => participants.first,
+    );
+    final isHostOwing = hostParticipant.userId == currentUser?.id &&
+        hostParticipant.paymentStatus == PaymentStatus.owing;
+
     final totalOwed = participants.fold<double>(
       0,
       (sum, p) =>
@@ -122,6 +132,12 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Host's own payment card (if host owes)
+            if (isHostOwing) ...[
+              _buildHostPaymentCard(context, hostParticipant),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
             // Summary Card
             _buildSummaryCard(
               totalOwed: totalOwed,
@@ -157,6 +173,82 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     );
   }
 
+  Widget _buildHostPaymentCard(BuildContext context, Participant hostParticipant) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.primaryContainer.withOpacity(isDark ? 0.3 : 0.5),
+        borderRadius: AppRadius.allMd,
+        border: Border.all(color: colorScheme.primary.withOpacity(0.5), width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.account_circle, color: colorScheme.primary, size: 28),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your Share',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: colorScheme.primary,
+                          ),
+                    ),
+                    Text(
+                      'You paid the restaurant, but you also owe your share',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurface.withOpacity(0.7),
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Your amount:',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              Text(
+                '${AppConstants.currencySymbol}${hostParticipant.totalOwed.toStringAsFixed(2)}',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _markHostShareAsPaid(hostParticipant),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: isDark ? colorScheme.onPrimary : Colors.white,
+              ),
+              icon: const Icon(Icons.check_circle),
+              label: const Text('Mark My Share as Paid'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSummaryCard({
     required double totalOwed,
     required double totalCollected,
@@ -187,12 +279,12 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             children: [
               _buildStatColumn(
                 'Collected',
-                '\$${totalCollected.toStringAsFixed(2)}',
+                '${AppConstants.currencySymbol}${totalCollected.toStringAsFixed(2)}',
                 successColor,
               ),
               _buildStatColumn(
                 'Outstanding',
-                '\$${totalOwed.toStringAsFixed(2)}',
+                '${AppConstants.currencySymbol}${totalOwed.toStringAsFixed(2)}',
                 warningColor,
               ),
             ],
@@ -294,7 +386,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         break;
       case PaymentStatus.owing:
         statusColor = neutralColor;
-        statusText = 'OWES \$${participant.totalOwed.toStringAsFixed(2)}';
+        statusText = 'OWES ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)}';
         statusIcon = Icons.attach_money;
         break;
     }
@@ -337,7 +429,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                     ),
                     if (participant.paymentStatus == PaymentStatus.paid)
                       Text(
-                        '\$${participant.totalOwed.toStringAsFixed(2)}',
+                        '${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: colorScheme.onSurface.withOpacity(0.7),
                             ),
@@ -392,7 +484,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Confirm Payment'),
         content: Text(
-          'Confirm you received \$${participant.totalOwed.toStringAsFixed(2)} from ${participant.displayName}?',
+          'Confirm you received ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)} from ${participant.displayName}?',
         ),
         actions: [
           TextButton(
@@ -417,7 +509,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       final paymentRepo = ref.read(paymentRepositoryProvider);
       await paymentRepo.confirmPayment(
         tableId: widget.tableId,
-        participantId: participant.id,
+        participantUserId: participant.id,
       );
 
       // Reload table data
@@ -508,6 +600,71 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error settling table: $e'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _markHostShareAsPaid(Participant hostParticipant) async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final successColor = isDark ? const Color(0xFF4CAF50) : const Color(0xFF2E7D32);
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Mark Your Share as Paid?'),
+        content: Text(
+          'This will mark your share of ${AppConstants.currencySymbol}${hostParticipant.totalOwed.toStringAsFixed(2)} as paid. '
+          'Since you already paid the restaurant, this settles your portion of the bill.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: successColor,
+              foregroundColor: isDark ? colorScheme.onPrimary : Colors.white,
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    try {
+      final paymentRepo = ref.read(paymentRepositoryProvider);
+
+      // Mark as paid outside, then immediately confirm it (host confirms their own payment)
+      await paymentRepo.markPaidOutside(tableId: widget.tableId);
+      await paymentRepo.confirmPayment(
+        tableId: widget.tableId,
+        participantUserId: hostParticipant.userId,
+      );
+
+      // Reload table data
+      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Your share has been marked as paid'),
+            backgroundColor: successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error marking share as paid: $e'),
             backgroundColor: colorScheme.error,
           ),
         );
