@@ -3,10 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../api/api_client.dart';
 import '../constants/route_names.dart';
 import '../constants/app_constants.dart';
 import '../providers/supabase_provider.dart';
 import '../theme/providers/theme_mode_provider.dart';
+import '../../features/table/providers/table_provider.dart';
+import '../../features/table/models/table_session.dart';
+import '../../features/table/models/participant.dart';
 import '../../features/auth/providers/user_profile_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
@@ -195,6 +199,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final notifier = ref.read(themeModeProvider.notifier);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -230,9 +235,377 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 24),
+          SettingsSection(
+            title: 'Danger zone',
+            subtitle: 'Delete your account and all associated data.',
+            titleColor: colorScheme.error,
+            subtitleColor: colorScheme.error.withValues(alpha: 0.8),
+            cardColor: colorScheme.error.withValues(alpha: 0.05),
+            dividerColor: colorScheme.error.withValues(alpha: 0.15),
+            children: [
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                leading: Icon(Icons.delete_outline, color: colorScheme.error),
+                title: Text(
+                  'Delete account',
+                  style: TextStyle(
+                    color: colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  'This action cannot be undone.',
+                  style: TextStyle(
+                    color: colorScheme.error.withValues(alpha: 0.85),
+                  ),
+                ),
+                trailing: Icon(Icons.arrow_forward_ios,
+                    color: colorScheme.error.withValues(alpha: 0.8), size: 16),
+                onTap: () => _handleDeleteAccountTap(context, ref),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _handleDeleteAccountTap(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _ProgressDialog(
+        title: 'Checking account',
+        message: 'Making sure every table is squared away before closing your account.',
+      ),
+    );
+
+    try {
+      final blockers = await _collectDeletionBlockers(ref);
+      rootNavigator.pop();
+      if (!context.mounted) return;
+
+      if (blockers.isNotEmpty) {
+        await _showBlockersDialog(context, blockers);
+        return;
+      }
+
+      await _confirmDeleteAccount(context, ref);
+    } catch (error) {
+      rootNavigator.pop();
+      if (!context.mounted) return;
+
+      await _showBlockersDialog(context, [
+        _DeletionBlocker(
+          icon: Icons.warning_amber_rounded,
+          iconColor: Theme.of(context).colorScheme.error,
+          title: 'Couldn’t verify account status',
+          message: error is ApiException && error.message.isNotEmpty
+              ? error.message
+              : 'We ran into an issue checking your tables. Please try again in a moment.',
+        ),
+      ]);
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final scheme = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          title: const Text('Delete account?'),
+          content: const Text(
+            'Deleting your account removes all tables, payment information, and history. This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: scheme.error,
+                foregroundColor: scheme.onError,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !context.mounted) return;
+    await _deleteAccount(context, ref);
+  }
+
+  Future<void> _deleteAccount(BuildContext context, WidgetRef ref) async {
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _ProgressDialog(
+        title: 'Deleting account',
+        message: 'Hold tight while we securely remove your account.',
+      ),
+    );
+
+    try {
+      await ref.read(userRepositoryProvider).deleteAccount();
+      rootNavigator.pop();
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your account has been deleted.')),
+      );
+
+      await ref.read(supabaseClientProvider).auth.signOut();
+      if (!context.mounted) return;
+      context.go(RoutePaths.auth);
+    } catch (error) {
+      rootNavigator.pop();
+      if (!context.mounted) return;
+
+      final message = _describeAccountDeletionError(error);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    }
+  }
+
+  Future<List<_DeletionBlocker>> _collectDeletionBlockers(
+    WidgetRef ref,
+  ) async {
+    final blockers = <_DeletionBlocker>[];
+    final tableRepository = ref.read(tableRepositoryProvider);
+    final currentUser = ref.read(currentUserProvider);
+
+    final activeTable = await tableRepository.getActiveTable();
+    if (activeTable == null) return blockers;
+
+    final tableName = _formatTableName(activeTable);
+    final isTableOpen = activeTable.status != TableStatus.settled &&
+        activeTable.status != TableStatus.cancelled;
+
+    if (isTableOpen) {
+      blockers.add(
+        _DeletionBlocker(
+          icon: Icons.table_restaurant,
+          title: 'Table still open',
+          message:
+              '$tableName is still in progress. Finish or cancel it before deleting your account.',
+        ),
+      );
+    }
+
+    final tableData = await tableRepository.getTableData(activeTable.id);
+    final unpaidParticipants = tableData.participants
+        .where((participant) => participant.paymentStatus != PaymentStatus.paid)
+        .toList();
+
+    if (unpaidParticipants.isEmpty) {
+      return blockers;
+    }
+
+    final currentUserId = currentUser?.id;
+    Participant? selfParticipant;
+    if (currentUserId != null) {
+      for (final participant in unpaidParticipants) {
+        if (participant.userId == currentUserId) {
+          selfParticipant = participant;
+          break;
+        }
+      }
+    }
+
+    if (selfParticipant != null) {
+      blockers.add(
+        _DeletionBlocker(
+          icon: Icons.payments_outlined,
+          title: 'You still owe ${_formatCurrency(selfParticipant.totalOwed)}',
+          message:
+              'Pay your share on $tableName before we can remove your account.',
+        ),
+      );
+    }
+
+    final isHost = currentUserId != null &&
+        currentUserId == tableData.table.hostUserId;
+    final othersStillPaying = unpaidParticipants
+        .where((participant) => participant != selfParticipant)
+        .toList();
+
+    if (othersStillPaying.isNotEmpty && isHost) {
+      final names = _formatNameList(
+        othersStillPaying.map((participant) => participant.displayName).toList(),
+      );
+      blockers.add(
+        _DeletionBlocker(
+          icon: Icons.people_outline,
+          title: 'Guests still settling up',
+          message:
+              '$names still need to settle $tableName. Give them a moment or close the table first.',
+        ),
+      );
+    }
+
+    return blockers;
+  }
+
+  Future<void> _showBlockersDialog(
+    BuildContext context,
+    List<_DeletionBlocker> blockers,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final colorScheme = Theme.of(dialogContext).colorScheme;
+        return AlertDialog(
+          title: const Text('Can’t delete just yet'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: blockers
+                  .map(
+                    (blocker) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            blocker.icon,
+                            color: blocker.iconColor ?? colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  blocker.title,
+                                  style: Theme.of(dialogContext)
+                                      .textTheme
+                                      .titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  blocker.message,
+                                  style:
+                                      Theme.of(dialogContext).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Got it'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _formatTableName(TableSession table) {
+    if (table.title != null && table.title!.trim().isNotEmpty) {
+      return table.title!.trim();
+    }
+    if (table.code.isNotEmpty) {
+      return 'Table ${table.code}';
+    }
+    return 'your table';
+  }
+
+  String _formatCurrency(double value) {
+    return '\$${value.toStringAsFixed(2)}';
+  }
+
+  String _formatNameList(List<String> names) {
+    if (names.isEmpty) return '';
+    if (names.length == 1) return names.first;
+    if (names.length == 2) return '${names[0]} and ${names[1]}';
+    if (names.length == 3) {
+      return '${names[0]}, ${names[1]} and ${names[2]}';
+    }
+    final remaining = names.length - 2;
+    return '${names[0]}, ${names[1]} and $remaining others';
+  }
+
+  String _describeAccountDeletionError(Object error) {
+    if (error is ApiException) {
+      final status = error.statusCode;
+      final serverMessage = _extractServerMessage(error.data);
+      final fallbackMessage = (error.message.isNotEmpty &&
+              error.message.toLowerCase() != 'request failed')
+          ? error.message
+          : null;
+      if (status == 409) {
+        return serverMessage ??
+            'Looks like you still have an open table or pending payment. Close them out and try again.';
+      }
+      if (status == 400 || status == 422) {
+        return serverMessage ??
+            'Your account still has outstanding activity. Please wrap up any open tables before deleting.';
+      }
+      if (serverMessage != null && serverMessage.isNotEmpty) {
+        return serverMessage;
+      }
+      if (fallbackMessage != null) {
+        return fallbackMessage;
+      }
+      final statusLabel = status != null ? ' (code $status)' : '';
+      return 'We couldn’t delete your account$statusLabel. Please try again in a moment.';
+    }
+    return 'We couldn’t reach the server. Check your connection and try again.';
+  }
+
+  String? _extractServerMessage(dynamic data) {
+    if (data == null) return null;
+    if (data is String) {
+      return data;
+    }
+    if (data is Map) {
+      final candidates = [
+        'message',
+        'detail',
+        'error',
+        'reason',
+        'description',
+      ];
+      for (final key in candidates) {
+        final value = data[key];
+        if (value is String && value.isNotEmpty) {
+          return value;
+        }
+      }
+      final errors = data['errors'];
+      if (errors is List) {
+        return errors.whereType<String>().join('\n');
+      }
+    }
+    if (data is List) {
+      return data.whereType<String>().join('\n');
+    }
+    return data.toString();
   }
 }
 
@@ -242,11 +615,19 @@ class SettingsSection extends StatelessWidget {
     required this.title,
     required this.children,
     this.subtitle,
+    this.titleColor,
+    this.subtitleColor,
+    this.cardColor,
+    this.dividerColor,
   });
 
   final String title;
   final List<Widget> children;
   final String? subtitle;
+  final Color? titleColor;
+  final Color? subtitleColor;
+  final Color? cardColor;
+  final Color? dividerColor;
 
   @override
   Widget build(BuildContext context) {
@@ -258,23 +639,86 @@ class SettingsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: titleStyle),
+        Text(
+          title,
+          style: (titleStyle ?? Theme.of(context).textTheme.titleMedium)
+              ?.copyWith(color: titleColor),
+        ),
         if (subtitle != null) ...[
           const SizedBox(height: 4),
-          Text(subtitle!, style: subtitleStyle),
+          Text(
+            subtitle!,
+            style: (subtitleStyle ?? Theme.of(context).textTheme.bodySmall)
+                ?.copyWith(color: subtitleColor),
+          ),
         ],
         const SizedBox(height: 12),
         Card(
+          color: cardColor,
           child: Column(
             children: [
               for (var i = 0; i < children.length; i++) ...[
-                if (i > 0) const Divider(height: 1),
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    color: dividerColor,
+                  ),
                 children[i],
               ],
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DeletionBlocker {
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color? iconColor;
+
+  const _DeletionBlocker({
+    required this.icon,
+    required this.title,
+    required this.message,
+    this.iconColor,
+  });
+}
+
+class _ProgressDialog extends StatelessWidget {
+  final String title;
+  final String message;
+
+  const _ProgressDialog({
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(
+                height: 28,
+                width: 28,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+              const SizedBox(width: 16),
+              Flexible(
+                child: Text(message),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
