@@ -51,4 +51,8 @@ class UserRepository {
       parser: (data) => UserProfile.fromJson(data as Map<String, dynamic>),
     );
   }
+
+  Future<void> deleteAccount() async {
+    await apiClient.delete<dynamic>('/profiles/me');
+  }
 }
