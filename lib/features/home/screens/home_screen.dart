@@ -388,18 +388,107 @@ class _ActionCard extends StatelessWidget {
   }
 }
 
-class _TicketCard extends StatelessWidget {
+class _TicketCard extends ConsumerWidget {
   final TableSession table;
   final String? currentUserId;
 
   const _TicketCard({required this.table, this.currentUserId});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final isHost = table.hostUserId == currentUserId;
     final isDark = theme.brightness == Brightness.dark;
 
+    // Swipe-to-cancel only for hosts
+    if (isHost) {
+      return Dismissible(
+        key: Key(table.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 24),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.error,
+            borderRadius: AppRadius.allMd,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.cancel, color: theme.colorScheme.onError, size: 32),
+              const SizedBox(height: 4),
+              Text(
+                'Cancel',
+                style: TextStyle(
+                  color: theme.colorScheme.onError,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        confirmDismiss: (direction) async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Cancel Table?'),
+              content: Text(
+                'This will cancel "${table.title ?? "Table ${table.code}"}" and remove it from active tables. This action cannot be undone.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    'Keep Table',
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.error,
+                    foregroundColor: theme.colorScheme.onError,
+                  ),
+                  child: const Text('Cancel Table'),
+                ),
+              ],
+            ),
+          );
+        },
+        onDismissed: (direction) async {
+          try {
+            await ref.read(currentTableProvider.notifier).cancelTable(table.id);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Table ${table.code} cancelled'),
+                  backgroundColor: theme.colorScheme.primary,
+                ),
+              );
+            }
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to cancel table: $e'),
+                  backgroundColor: theme.colorScheme.error,
+                ),
+              );
+              // Refresh to restore the card
+              ref.invalidate(activeTablesProvider);
+            }
+          }
+        },
+        child: _buildCard(context, theme, isDark, isHost),
+      );
+    }
+
+    // Non-hosts see the regular card
+    return _buildCard(context, theme, isDark, isHost);
+  }
+
+  Widget _buildCard(BuildContext context, ThemeData theme, bool isDark, bool isHost) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(

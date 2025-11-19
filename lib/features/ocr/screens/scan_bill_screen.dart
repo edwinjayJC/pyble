@@ -47,14 +47,16 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     super.dispose();
   }
 
-  // --- LOGIC ---
+  // ==========================================
+  // LOGIC & DATA
+  // ==========================================
 
   Future<void> _captureImage(ImageSource source) async {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        imageQuality: 85,
-        maxWidth: 1920,
+        imageQuality: 85, // Slightly higher quality for OCR
+        maxWidth: 1920,   // Limit size to prevent OOM
       );
 
       if (image != null) {
@@ -64,6 +66,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           _isScanning = true;
         });
 
+        // Trigger OCR
         await _scanBill(bytes, image.mimeType ?? 'image/jpeg');
       }
     } catch (e) {
@@ -83,12 +86,12 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
       await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
 
       if (mounted) {
-        HapticFeedback.mediumImpact();
+        HapticFeedback.mediumImpact(); // Success Thud
         _showSuccessSnackBar('✨ Magic! Found $count items.');
       }
     } catch (e) {
       if (mounted) {
-        _showManualEntryOptions();
+        _showManualEntryOptions(); // Fallback immediately on error
       }
     } finally {
       if (mounted) setState(() => _isScanning = false);
@@ -115,6 +118,74 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     }
   }
 
+  Future<void> _editItem(String itemId) async {
+    final description = _descriptionController.text.trim();
+    final price = double.parse(_priceController.text);
+
+    try {
+      await ref.read(currentTableProvider.notifier).updateItem(
+        itemId: itemId,
+        description: description,
+        price: price,
+      );
+      if (mounted) {
+        HapticFeedback.lightImpact();
+        Navigator.pop(context); // Close dialog
+        _descriptionController.clear();
+        _priceController.clear();
+      }
+    } catch (e) {
+      _showErrorSnackBar("Error updating item: $e");
+    }
+  }
+
+  Future<void> _deleteItem(String itemId) async {
+    try {
+      await ref.read(currentTableProvider.notifier).deleteItem(itemId);
+      if (mounted) {
+        HapticFeedback.lightImpact();
+      }
+    } catch (e) {
+      _showErrorSnackBar("Error deleting item: $e");
+    }
+  }
+
+  Future<void> _clearAndRescan() async {
+    final theme = Theme.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Clear & Scan Again?"),
+        content: const Text("This will remove all current items. You can scan a new receipt."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancel", style: TextStyle(color: theme.colorScheme.onSurface)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
+            child: const Text("Clear All"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ref.read(currentTableProvider.notifier).clearAllItems();
+        if (mounted) {
+          HapticFeedback.mediumImpact();
+          setState(() {
+            _imageBytes = null;
+          });
+        }
+      } catch (e) {
+        _showErrorSnackBar("Error clearing items: $e");
+      }
+    }
+  }
+
   void _showErrorSnackBar(String message) {
     final theme = Theme.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
@@ -132,7 +203,9 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     );
   }
 
-  // --- UI BUILD ---
+  // ==========================================
+  // MAIN BUILD
+  // ==========================================
 
   @override
   Widget build(BuildContext context) {
@@ -142,15 +215,10 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      // FIX: Adapt background to Dark Plum/Light Crust
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('Digitize Bill',
-            style: TextStyle(
-                color: theme.colorScheme.onSurface, // Dark Fig / White
-                fontWeight: FontWeight.bold
-            )
-        ),
+            style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
@@ -161,8 +229,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           if (hasItems)
             TextButton(
               onPressed: () => context.go('/table/${widget.tableId}/invite'),
-              child: const Text("Next",
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              child: const Text("Next", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             )
         ],
       ),
@@ -184,7 +251,11 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     );
   }
 
-  // === VIEW 1: THE LENS (Empty State) ===
+  // ==========================================
+  // SUB-VIEWS
+  // ==========================================
+
+  // View 1: The Lens (Empty State)
   Widget _buildCameraView() {
     final theme = Theme.of(context);
     final onSurface = theme.colorScheme.onSurface;
@@ -199,7 +270,6 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              // FIX: Use Surface color (White/Ink)
               color: theme.colorScheme.surface,
               shape: BoxShape.circle,
               boxShadow: [
@@ -246,12 +316,10 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: theme.colorScheme.onPrimary,
                 elevation: 4,
-                shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.allMd),
+                shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
               ),
               icon: const Icon(Icons.camera_alt),
-              label: const Text("Scan with Camera",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              label: const Text("Scan with Camera", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
           const SizedBox(height: 16),
@@ -282,7 +350,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     );
   }
 
-  // === VIEW 2: SCANNING (Animation) ===
+  // View 2: Scanning State
   Widget _buildScanningState() {
     final theme = Theme.of(context);
     return Center(
@@ -298,10 +366,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           const SizedBox(height: 32),
           Text(
             "Reading Receipt...",
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: theme.colorScheme.onSurface),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
           ),
           const SizedBox(height: 8),
           Text(
@@ -313,7 +378,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     );
   }
 
-  // === VIEW 3: THE RECEIPT (Results) ===
+  // View 3: The Receipt (Results)
   Widget _buildReceiptView(List<BillItem> items) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -329,10 +394,9 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                 // The "Paper" Receipt Card
                 Container(
                   decoration: BoxDecoration(
-                    // FIX: Use Surface Color (Snow vs Ink)
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
-                    // In dark mode, use a subtle border instead of shadow for visibility
+                    // Subtle border for visibility in Dark Mode
                     border: isDark ? Border.all(color: theme.dividerColor) : null,
                     boxShadow: [
                       BoxShadow(
@@ -349,17 +413,18 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            Icon(Icons.storefront,
-                                color: theme.colorScheme.onSurface, size: 32),
+                            Icon(Icons.storefront, color: theme.colorScheme.onSurface, size: 32),
                             const SizedBox(height: 8),
                             Text("BILL DETAILS",
                                 style: TextStyle(
                                     fontSize: 10,
                                     letterSpacing: 1.5,
                                     fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface)),
+                                    color: theme.colorScheme.onSurface
+                                )
+                            ),
                             const SizedBox(height: 16),
-                            const Divider(height: 1),
+                            Divider(height: 1, color: theme.dividerColor),
                           ],
                         ),
                       ),
@@ -368,41 +433,68 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                       ListView.separated(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        padding: EdgeInsets.zero,
                         itemCount: items.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        separatorBuilder: (_, __) => const SizedBox(height: 0),
                         itemBuilder: (context, index) {
                           final item = items[index];
-                          return Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  item.description,
-                                  style: TextStyle(
-                                      fontSize: 16,
-                                      color: theme.colorScheme.onSurface,
-                                      height: 1.3),
+                          return Dismissible(
+                            key: Key(item.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 24),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.error,
+                                borderRadius: BorderRadius.circular(0),
+                              ),
+                              child: Icon(Icons.delete, color: theme.colorScheme.onError),
+                            ),
+                            confirmDismiss: (direction) async {
+                              // Note: You can implement a quick confirm dialog here if needed
+                              return true;
+                            },
+                            onDismissed: (direction) => _deleteItem(item.id),
+                            child: InkWell(
+                              onTap: () => _showEditItemDialog(item),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item.description,
+                                        style: TextStyle(
+                                            fontSize: 16,
+                                            color: theme.colorScheme.onSurface,
+                                            height: 1.3
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Text(
+                                      "${AppConstants.currencySymbol}${item.price.toStringAsFixed(2)}",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.colorScheme.onSurface,
+                                        fontFeatures: const [FontFeature.tabularFigures()],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(Icons.edit, size: 16, color: theme.disabledColor),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(width: 16),
-                              Text(
-                                "${AppConstants.currencySymbol}${item.price.toStringAsFixed(2)}",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.colorScheme.onSurface,
-                                  fontFeatures: const [FontFeature.tabularFigures()],
-                                ),
-                              ),
-                            ],
+                            ),
                           );
                         },
                       ),
 
                       // Footer / Total
-                      const SizedBox(height: 24),
-                      const Divider(height: 1, indent: 24, endIndent: 24),
+                      const SizedBox(height: 12),
+                      Divider(height: 1, color: theme.dividerColor, indent: 24, endIndent: 24),
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Row(
@@ -412,26 +504,28 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                                 style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface)),
+                                    color: theme.colorScheme.onSurface
+                                )
+                            ),
                             Text(
                               "${AppConstants.currencySymbol}${total.toStringAsFixed(2)}",
                               style: TextStyle(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w900,
                                   color: theme.colorScheme.primary,
-                                  fontFeatures: const [FontFeature.tabularFigures()]),
+                                  fontFeatures: const [FontFeature.tabularFigures()]
+                              ),
                             ),
                           ],
                         ),
                       ),
 
-                      // Jagged Edge Visual (Matches surface color)
+                      // Jagged Edge Visual
                       Container(
                         height: 12,
                         decoration: BoxDecoration(
                           color: theme.colorScheme.surface,
-                          borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(12)),
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
                         ),
                       ),
                     ],
@@ -440,13 +534,26 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
 
                 const SizedBox(height: 24),
 
-                // "Add More" Button
-                TextButton.icon(
-                  onPressed: _showAddItemDialog,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text("Add Missing Item"),
-                  style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurface.withOpacity(0.6)),
+                // Action Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _showAddItemDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text("Add Item"),
+                      style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurface.withOpacity(0.6)),
+                    ),
+                    const SizedBox(width: 16),
+                    TextButton.icon(
+                      onPressed: _clearAndRescan,
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      label: const Text("Scan Again"),
+                      style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.onSurface.withOpacity(0.6)),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -475,8 +582,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: theme.colorScheme.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.allMd),
+                  shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
                 ),
                 child: const Text("Looks Good, Invite Friends",
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -488,15 +594,16 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     );
   }
 
-  // === MANUAL ENTRY DIALOGS ===
+  // ==========================================
+  // DIALOGS
+  // ==========================================
 
   void _showManualEntryOptions() {
     final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -504,12 +611,9 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           children: [
             Icon(Icons.warning_amber_rounded, size: 48, color: theme.colorScheme.error),
             const SizedBox(height: 16),
-            const Text("Scan didn't work?",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text("Scan didn't work?", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const Text(
-                "The lighting might be tricky. You can type items manually.",
-                textAlign: TextAlign.center),
+            const Text("The lighting might be tricky. You can type items manually.", textAlign: TextAlign.center),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () {
@@ -547,31 +651,63 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                 controller: _descriptionController,
                 autofocus: true,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                    labelText: "Item Name", hintText: "e.g. Coffee"),
+                decoration: const InputDecoration(labelText: "Item Name", hintText: "e.g. Coffee"),
                 validator: (val) => val!.isEmpty ? "Required" : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _priceController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                    labelText: "Price", prefixText: "\$ "),
-                validator: (val) =>
-                double.tryParse(val!) == null ? "Invalid price" : null,
+                decoration: const InputDecoration(labelText: "Price", prefixText: "\$ "),
+                validator: (val) => double.tryParse(val!) == null ? "Invalid price" : null,
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Cancel")),
-          ElevatedButton(
-              onPressed: () {
-                if (_formKey.currentState!.validate()) _addManualItem();
-              },
-              child: const Text("Add")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(onPressed: () {
+            if (_formKey.currentState!.validate()) _addManualItem();
+          }, child: const Text("Add")),
+        ],
+      ),
+    );
+  }
+
+  void _showEditItemDialog(BillItem item) {
+    _descriptionController.text = item.description;
+    _priceController.text = item.price.toStringAsFixed(2);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Edit Item"),
+        content: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: _descriptionController,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(labelText: "Item Name"),
+                validator: (val) => val!.isEmpty ? "Required" : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: "Price", prefixText: "\$ "),
+                validator: (val) => double.tryParse(val!) == null ? "Invalid price" : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(onPressed: () {
+            if (_formKey.currentState!.validate()) _editItem(item.id);
+          }, child: const Text("Save")),
         ],
       ),
     );

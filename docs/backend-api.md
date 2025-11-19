@@ -147,8 +147,8 @@ Endpoints for scanning and editing the bill.
     ```
 * **Success Response:** `200 OK` (Client will update via SignalR).
 
-### `PUT /tables/:tableId/item/:itemId`
-* **Action:** (Phase 3) (Host-only) Edits an existing item.
+### `PUT /tables/:tableId/items/:itemId`
+* **Action:** (Phase 3) (Host-only) Edits an existing item. Both `name` and `price` are optional, but at least one must be provided.
 * **Body:**
     ```json
     {
@@ -156,11 +156,44 @@ Endpoints for scanning and editing the bill.
       "price": 55.00
     }
     ```
-* **Success Response:** `200 OK` (Client will update via SignalR).
+* **Success Response:** `200 OK`
+  * **Body:**
+    ```json
+    {
+      "message": "Item updated successfully",
+      "table": <SplitTable>
+    }
+    ```
+* **Error Response:**
+  * `403 Forbidden` (if not host)
+  * `404 Not Found` (if table or item doesn't exist)
+  * `400 Bad Request` (if neither name nor price provided, or if price is invalid)
 
-### `DELETE /tables/:tableId/item/:itemId`
-* **Action:** (Phase 3) (Host-only) Deletes an item from the bill.
-* **Success Response:** `200 OK` (Client will update via SignalR).
+### `DELETE /tables/:tableId/items/:itemId`
+* **Action:** (Phase 3) (Host-only) Deletes a single item from the bill.
+* **Success Response:** `200 OK`
+  * **Body:**
+    ```json
+    {
+      "message": "Item deleted successfully",
+      "table": <SplitTable>
+    }
+    ```
+* **Error Response:**
+  * `403 Forbidden` (if not host)
+  * `404 Not Found` (if table or item doesn't exist)
+
+### `DELETE /tables/:tableId/items`
+* **Action:** (Phase 3) (Host-only) Clears all items from the bill. This is useful for the "Scan Again" functionality where the host wants to rescan the bill. Also resets subTotal, tax, and tip to 0.
+* **Success Response:** `200 OK`
+  * **Body:**
+    ```json
+    {
+      "message": "All items cleared successfully",
+      "table": <SplitTable>
+    }
+    ```
+* **Error Response:** `403 Forbidden` (if not host)
 
 ### `PUT /tables/:tableId/claim`
 * **Action:** (Phase 2) (Participant) Claims or unclaims an item.

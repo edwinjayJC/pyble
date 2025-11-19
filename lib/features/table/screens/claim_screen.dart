@@ -139,6 +139,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context, String? tableCode) {
     final theme = Theme.of(context);
+    final isHost = ref.watch(isHostProvider);
+
     return AppBar(
       // FIX: Adapt surface color (Snow vs Ink)
       backgroundColor: theme.colorScheme.surface,
@@ -186,9 +188,16 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         ],
       ),
       actions: [
+        if (isHost)
+          IconButton(
+            icon: Icon(Icons.edit, color: theme.colorScheme.primary),
+            onPressed: () => context.push('/table/${widget.tableId}/edit'),
+            tooltip: 'Edit Bill',
+          ),
         IconButton(
           icon: Icon(Icons.people_outline, color: theme.colorScheme.onSurface),
           onPressed: () => _showParticipantsSheet(context),
+          tooltip: 'Participants',
         ),
       ],
     );
@@ -380,6 +389,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     if (tableData == null) return;
 
     final theme = Theme.of(context);
+    final isHost = ref.read(isHostProvider);
 
     showModalBottomSheet(
       context: context,
@@ -395,12 +405,24 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Text(
-                "Who is here?",
-                style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Who is here?",
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface),
+                  ),
+                  Text(
+                    "${tableData.participants.length} ${tableData.participants.length == 1 ? 'person' : 'people'}",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -412,7 +434,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                     Divider(height: 1, color: theme.dividerColor),
                 itemBuilder: (context, index) {
                   final p = tableData.participants[index];
-                  final isHost = p.userId == tableData.table.hostUserId;
+                  final isHostUser = p.userId == tableData.table.hostUserId;
                   return ListTile(
                     leading: CircleAvatar(
                       // FIX: Use themed background for avatars
@@ -433,7 +455,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                           fontWeight: FontWeight.w600,
                           color: theme.colorScheme.onSurface),
                     ),
-                    trailing: isHost
+                    trailing: isHostUser
                         ? Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
@@ -450,6 +472,32 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                         : null,
                   );
                 },
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    context.push('/table/${widget.tableId}/invite');
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  icon: const Icon(Icons.person_add),
+                  label: Text(
+                    isHost ? "Invite More People" : "Share Invite Link",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
