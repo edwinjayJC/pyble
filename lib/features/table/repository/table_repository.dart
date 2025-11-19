@@ -259,6 +259,13 @@ class TableRepository {
     );
   }
 
+  Future<void> leaveTable(String tableId) async {
+    await apiClient.post(
+      '/tables/$tableId/leave',
+      parser: (_) {},
+    );
+  }
+
   String getJoinLink(String tableCode) {
     return 'pyble://join?code=$tableCode';
   }

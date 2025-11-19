@@ -369,6 +369,24 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     }
   }
 
+  Future<void> leaveTable(String tableId) async {
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      await repository.leaveTable(tableId);
+      // Invalidate the active tables provider to refresh the list
+      ref.invalidate(activeTablesProvider);
+      // Clear current table if it's the one being left
+      final currentData = state.valueOrNull;
+      if (currentData?.table.id == tableId) {
+        clearTable();
+      }
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
   void _startPolling(String tableId) {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(

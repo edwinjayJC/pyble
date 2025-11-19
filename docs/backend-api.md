@@ -124,6 +124,24 @@ Endpoints for creating, joining, and managing `SplitTable` sessions.
   * **Body:** None.
 * **Error Response:** `403 Forbidden` (if not host).
 
+### `POST /tables/:tableId/leave`
+* **Action:** (Phase 4) (Participant-only) Allows a participant to leave a table. Removes the user from participants and clears all their claims from items. Recalculates totals for remaining participants.
+* **Pre-conditions:**
+  * User must be a participant (not the host)
+  * Table must not be `settled` or `cancelled`
+* **Success Response:** `200 OK`
+  * **Body:**
+    ```json
+    {
+      "message": "Successfully left the table"
+    }
+    ```
+* **Error Response:**
+  * `400 Bad Request` (if tableId not provided)
+  * `403 Forbidden` (if user is host - must cancel instead, or if user is not a participant)
+  * `404 Not Found` (if table doesn't exist)
+  * `409 Conflict` (if table is already settled or cancelled)
+
 ---
 
 ## 4. Resource: Bill Management

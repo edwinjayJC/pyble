@@ -400,35 +400,39 @@ class _TicketCard extends ConsumerWidget {
     final isHost = table.hostUserId == currentUserId;
     final isDark = theme.brightness == Brightness.dark;
 
-    // Swipe-to-cancel only for hosts
-    if (isHost) {
-      return Dismissible(
-        key: Key(table.id),
-        direction: DismissDirection.endToStart,
-        background: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 24),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.error,
-            borderRadius: AppRadius.allMd,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.cancel, color: theme.colorScheme.onError, size: 32),
-              const SizedBox(height: 4),
-              Text(
-                'Cancel',
-                style: TextStyle(
-                  color: theme.colorScheme.onError,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+    // Both hosts and participants can swipe (cancel vs leave)
+    return Dismissible(
+      key: Key(table.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: isHost ? theme.colorScheme.error : AppColors.warmSpice,
+          borderRadius: AppRadius.allMd,
         ),
-        confirmDismiss: (direction) async {
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isHost ? Icons.cancel : Icons.exit_to_app,
+              color: theme.colorScheme.onError,
+              size: 32,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              isHost ? 'Cancel' : 'Leave',
+              style: TextStyle(
+                color: theme.colorScheme.onError,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        if (isHost) {
           return await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
@@ -455,9 +459,38 @@ class _TicketCard extends ConsumerWidget {
               ],
             ),
           );
-        },
-        onDismissed: (direction) async {
-          try {
+        } else {
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Leave Table?'),
+              content: Text(
+                'This will remove you from "${table.title ?? "Table ${table.code}"}". Your claims will be cleared.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(
+                    'Stay',
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.warmSpice,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Leave Table'),
+                ),
+              ],
+            ),
+          );
+        }
+      },
+      onDismissed: (direction) async {
+        try {
+          if (isHost) {
             await ref.read(currentTableProvider.notifier).cancelTable(table.id);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -467,25 +500,32 @@ class _TicketCard extends ConsumerWidget {
                 ),
               );
             }
-          } catch (e) {
+          } else {
+            await ref.read(currentTableProvider.notifier).leaveTable(table.id);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Failed to cancel table: $e'),
-                  backgroundColor: theme.colorScheme.error,
+                  content: Text('Left table ${table.code}'),
+                  backgroundColor: theme.colorScheme.primary,
                 ),
               );
-              // Refresh to restore the card
-              ref.invalidate(activeTablesProvider);
             }
           }
-        },
-        child: _buildCard(context, theme, isDark, isHost),
-      );
-    }
-
-    // Non-hosts see the regular card
-    return _buildCard(context, theme, isDark, isHost);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(isHost ? 'Failed to cancel table: $e' : 'Failed to leave table: $e'),
+                backgroundColor: theme.colorScheme.error,
+              ),
+            );
+            // Refresh to restore the card
+            ref.invalidate(activeTablesProvider);
+          }
+        }
+      },
+      child: _buildCard(context, theme, isDark, isHost),
+    );
   }
 
   Widget _buildCard(BuildContext context, ThemeData theme, bool isDark, bool isHost) {
