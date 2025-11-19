@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pyble/core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radius.dart';
+import '../../../core/theme/app_spacing.dart';
 import '../models/bill_item.dart';
 import '../models/participant.dart';
 
@@ -26,7 +29,8 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
   @override
   void initState() {
     super.initState();
-    // Pre-select current claimants
+    // Pre-select current claimants.
+    // If nobody claimed it yet, pre-select NOBODY (let user choose).
     _selectedUserIds = widget.item.claimedBy.map((c) => c.userId).toSet();
   }
 
@@ -35,165 +39,326 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
     return widget.item.price / _selectedUserIds.length;
   }
 
+  void _toggleSelectAll() {
+    setState(() {
+      if (_selectedUserIds.length == widget.participants.length) {
+        _selectedUserIds.clear();
+      } else {
+        _selectedUserIds = widget.participants.map((p) => p.userId).toSet();
+      }
+      HapticFeedback.lightImpact();
+    });
+  }
+
+  void _toggleParticipant(String userId) {
+    setState(() {
+      if (_selectedUserIds.contains(userId)) {
+        _selectedUserIds.remove(userId);
+      } else {
+        _selectedUserIds.add(userId);
+      }
+      HapticFeedback.selectionClick();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final allSelected = _selectedUserIds.length == widget.participants.length;
+
     return Container(
-      padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
         color: AppColors.snow,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          // 1. Handle Bar
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 12, bottom: 8),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.paleGray,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+
+          // 2. Header Section (Item Info)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Split Item',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.darkFig,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.item.description,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.darkFig.withOpacity(0.7),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'Split Item',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.darkFig,
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.item.description,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.darkFig.withOpacity(0.7),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                '${AppConstants.currencySymbol}${widget.item.price.toStringAsFixed(2)}',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.deepBerry,
-                    ),
-              ),
-            ],
-          ),
-          const Divider(height: 32),
-          Text(
-            'Select who shared this item:',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: AppColors.darkFig,
-                ),
-          ),
-          const SizedBox(height: 16),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: widget.participants.length,
-              itemBuilder: (context, index) {
-                final participant = widget.participants[index];
-                final isSelected = _selectedUserIds.contains(participant.userId);
-
-                return CheckboxListTile(
-                  value: isSelected,
-                  onChanged: (value) {
-                    setState(() {
-                      if (value == true) {
-                        _selectedUserIds.add(participant.userId);
-                      } else {
-                        _selectedUserIds.remove(participant.userId);
-                      }
-                    });
-                  },
-                  title: Text(
-                    participant.displayName,
-                    style: TextStyle(
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      color: AppColors.darkFig,
-                    ),
-                  ),
-                  subtitle: isSelected && _selectedUserIds.isNotEmpty
-                      ? Text(
-                          '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)}',
-                          style: TextStyle(
-                            color: AppColors.deepBerry.withOpacity(0.8),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        )
-                      : null,
-                  secondary: CircleAvatar(
-                    backgroundColor: isSelected ? AppColors.lightBerry : AppColors.paleGray,
-                    child: Text(
-                      participant.initials,
+                      'Total',
                       style: TextStyle(
-                        color: isSelected ? AppColors.deepBerry : AppColors.darkFig,
+                        fontSize: 12,
+                        color: AppColors.darkFig.withOpacity(0.5),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  activeColor: AppColors.deepBerry,
-                  checkColor: AppColors.snow,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                );
-              },
+                    Text(
+                      '${AppConstants.currencySymbol}${widget.item.price.toStringAsFixed(2)}',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.deepBerry,
+                        fontFeatures: [const FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          if (_selectedUserIds.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.lightBerry.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
+
+          const Divider(height: 1, color: AppColors.paleGray),
+
+          // 3. "Select All" Toggle
+          InkWell(
+            onTap: _toggleSelectAll,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${_selectedUserIds.length} ${_selectedUserIds.length == 1 ? 'person' : 'people'} selected',
-                    style: const TextStyle(
-                      color: AppColors.deepBerry,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Icon(
+                    allSelected ? Icons.check_circle : Icons.circle_outlined,
+                    color: allSelected ? AppColors.deepBerry : AppColors.paleGray,
                   ),
+                  const SizedBox(width: 12),
                   Text(
-                    '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)} each',
+                    allSelected ? "Deselect All" : "Select Everyone",
                     style: const TextStyle(
-                      color: AppColors.deepBerry,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.darkFig,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-          ],
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+          ),
+
+          // 4. Scrollable List of Users
+          Flexible(
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: widget.participants.length,
+              itemBuilder: (context, index) {
+                final participant = widget.participants[index];
+                final isSelected = _selectedUserIds.contains(participant.userId);
+
+                return _buildParticipantRow(participant, isSelected);
+              },
+            ),
+          ),
+
+          // 5. Sticky Footer (Summary & Action)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.snow,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: _selectedUserIds.isEmpty
-                      ? null
-                      : () {
+              ],
+            ),
+            child: Column(
+              children: [
+                // Math Breakdown
+                if (_selectedUserIds.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.lightBerry,
+                      borderRadius: AppRadius.allMd,
+                      border: Border.all(color: AppColors.deepBerry.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.pie_chart,
+                                size: 16, color: AppColors.deepBerry),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${_selectedUserIds.length} people',
+                              style: const TextStyle(
+                                color: AppColors.deepBerry,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Text(
+                          '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)} / each',
+                          style: const TextStyle(
+                            color: AppColors.deepBerry,
+                            fontWeight: FontWeight.bold,
+                            fontFeatures: [FontFeature.tabularFigures()],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.paleGray),
+                          foregroundColor: AppColors.darkFig,
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: _selectedUserIds.isEmpty
+                            ? null
+                            : () {
                           widget.onSplit(_selectedUserIds.toList());
                           Navigator.pop(context);
                         },
-                  child: const Text('Split'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.deepBerry,
+                          disabledBackgroundColor: AppColors.paleGray,
+                        ),
+                        child: const Text('Confirm Split'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildParticipantRow(Participant participant, bool isSelected) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: () => _toggleParticipant(participant.userId),
+        borderRadius: AppRadius.allMd,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.lightBerry.withOpacity(0.5) : AppColors.snow,
+            borderRadius: AppRadius.allMd,
+            border: Border.all(
+              color: isSelected ? AppColors.deepBerry : AppColors.paleGray,
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Avatar with Checkmark overlay
+              Stack(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: participant.avatarUrl != null
+                        ? NetworkImage(participant.avatarUrl!)
+                        : null,
+                    backgroundColor: isSelected ? AppColors.snow : AppColors.paleGray,
+                    child: participant.avatarUrl == null
+                        ? Text(
+                      participant.initials,
+                      style: TextStyle(
+                        color: isSelected ? AppColors.deepBerry : AppColors.darkFig,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                        : null,
+                  ),
+                  if (isSelected)
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        decoration: const BoxDecoration(
+                          color: AppColors.deepBerry,
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(2),
+                        child: const Icon(
+                            Icons.check,
+                            size: 10,
+                            color: Colors.white
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 16),
+
+              // Name
+              Expanded(
+                child: Text(
+                  participant.displayName,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? AppColors.deepBerry : AppColors.darkFig,
+                  ),
+                ),
+              ),
+
+              // Individual Amount (Optional - helps visualization)
+              if (isSelected && _selectedUserIds.isNotEmpty)
+                Text(
+                  '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: AppColors.deepBerry.withOpacity(0.8),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

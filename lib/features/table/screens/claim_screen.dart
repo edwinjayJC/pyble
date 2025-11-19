@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pyble/core/theme/app_colors.dart';
-import '../../../core/providers/supabase_provider.dart';
+
+// Core Imports
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/providers/supabase_provider.dart';
+
+// Feature Imports
 import '../providers/table_provider.dart';
+import '../models/table_session.dart';
+import '../models/bill_item.dart';
 import '../widgets/bill_item_row.dart';
 import '../widgets/complex_split_sheet.dart';
-import '../models/table_session.dart';
+import '../models/participant.dart';
 
 class ClaimScreen extends ConsumerStatefulWidget {
   final String tableId;
@@ -22,10 +31,24 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   @override
   void initState() {
     super.initState();
-    // Load table data when screen opens
+    // Load table data - provider handles polling automatically
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+      final currentData = ref.read(currentTableProvider).valueOrNull;
+      if (currentData?.table.id == widget.tableId) {
+        // Same table already loaded, refresh silently without loading indicator
+        ref.read(currentTableProvider.notifier).refreshTable(widget.tableId);
+      } else {
+        // Different table or no data, load with loading indicator
+        ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+      }
     });
+  }
+
+  @override
+  void dispose() {
+    // Stop polling when leaving the screen
+    ref.read(currentTableProvider.notifier).stopPolling();
+    super.dispose();
   }
 
   @override
@@ -34,10 +57,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     final currentUser = ref.watch(currentUserProvider);
     final isHost = ref.watch(isHostProvider);
 
-    // Listen for status changes and navigate to payment screens
     ref.listen<TableStatus?>(tableStatusProvider, (previous, next) {
       if (previous == TableStatus.claiming && next == TableStatus.collecting) {
-        // Table was locked, navigate to appropriate screen
+        // Provider handles polling cleanup automatically
         if (isHost) {
           context.go('/table/${widget.tableId}/dashboard');
         } else {
@@ -47,28 +69,13 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     });
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Claim Items'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/home'),
-        ),
-        actions: [
-          if (tableDataAsync.valueOrNull != null)
-            IconButton(
-              icon: const Icon(Icons.people),
-              onPressed: () => _showParticipantsSheet(context),
-              tooltip: 'View Participants',
-            ),
-        ],
-      ),
+      backgroundColor: AppColors.lightCrust,
+      appBar: _buildAppBar(context, tableDataAsync.valueOrNull?.table.code),
       body: tableDataAsync.when(
         data: (tableData) {
-          if (tableData == null) {
-            return const Center(child: Text('No table data'));
-          }
+          if (tableData == null) return const Center(child: Text('No Data'));
 
-          // Redirect if already in collecting status
+          // Redirect if table is in collecting status
           if (tableData.table.status == TableStatus.collecting) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (isHost) {
@@ -82,496 +89,420 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
           // Redirect if settled
           if (tableData.table.status == TableStatus.settled) {
-            return Center(
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              context.go('/home');
+            });
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.check_circle,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Table Settled',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('This table has been settled.'),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => context.go('/home'),
-                    child: const Text('Back to Home'),
-                  ),
+                  Icon(Icons.check_circle, size: 64, color: Colors.green),
+                  SizedBox(height: 16),
+                  Text('Table Settled'),
                 ],
               ),
             );
           }
 
-          final colorScheme = Theme.of(context).colorScheme;
-          final isDark = Theme.of(context).brightness == Brightness.dark;
+          // Only show the claiming UI if status is claiming
+          if (tableData.table.status != TableStatus.claiming) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final myTotal = _calculateUserTotal(tableData.items, currentUser?.id);
+          final unclaimedCount =
+              tableData.items.where((i) => !i.isClaimed).length;
 
           return Column(
             children: [
-              // Table info header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                color: colorScheme.primary.withOpacity(isDark ? 0.15 : 0.05),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Table: ${tableData.table.code}',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: colorScheme.primary,
-                              ),
-                        ),
-                        const Spacer(),
-                        _buildStatusChip(context, tableData.table.status),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${tableData.participants.length} participants',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurface.withOpacity(0.7),
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Instructions
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: colorScheme.surfaceVariant.withOpacity(isDark ? 0.3 : 0.5),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: colorScheme.onSurface.withOpacity(0.8),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        tableData.table.status == TableStatus.claiming
-                            ? 'Tap items to claim. Long press to split with others.'
-                            : 'Bill is locked. Waiting for payment.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurface.withOpacity(0.8),
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Bill items list
               Expanded(
                 child: tableData.items.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.receipt_long,
-                              size: 64,
-                              color: colorScheme.onSurface.withOpacity(0.3),
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No items yet',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: colorScheme.onSurface.withOpacity(0.5),
-                                  ),
-                            ),
-                            if (isHost)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(
-                                  'Scan or add items to the bill',
-                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                        color: colorScheme.onSurface.withOpacity(0.5),
-                                      ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+                    ? _buildEmptyState(context, isHost)
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(
+                            top: AppSpacing.sm, bottom: AppSpacing.xl),
+                        itemCount: tableData.items.length,
+                        itemBuilder: (context, index) {
+                          final item = tableData.items[index];
+                          return BillItemRow(
+                            item: item,
+                            participants: tableData.participants,
+                            currentUserId: currentUser?.id,
+                            isHost: isHost,
+                            onClaimToggle: () => _handleClaimToggle(item.id),
+                            onSplit: () =>
+                                _showSplitSheet(item, tableData.participants),
+                          );
                         },
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: tableData.items.length,
-                          itemBuilder: (context, index) {
-                            final item = tableData.items[index];
-                            return BillItemRow(
-                              item: item,
-                              participants: tableData.participants,
-                              currentUserId: currentUser?.id,
-                              isHost: isHost,
-                              onTap: tableData.table.status == TableStatus.claiming
-                                  ? () => _onItemTap(item.id)
-                                  : null,
-                              onLongPress: tableData.table.status == TableStatus.claiming
-                                  ? () => _onItemLongPress(item, tableData.participants)
-                                  : null,
-                            );
-                          },
-                        ),
                       ),
               ),
-
-              // Summary footer
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: colorScheme.surface,
-                  boxShadow: [
-                    BoxShadow(
-                      color: colorScheme.shadow.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    _buildSummaryRow(
-                      context,
-                      'Subtotal',
-                      '${AppConstants.currencySymbol}${tableData.items.fold(0.0, (sum, item) => sum + item.price).toStringAsFixed(2)}',
-                    ),
-                    if (currentUser != null) ...[
-                      const Divider(height: 16),
-                      _buildSummaryRow(
-                        context,
-                        'Your Total',
-                        '${AppConstants.currencySymbol}${_calculateUserTotal(tableData.items, currentUser.id).toStringAsFixed(2)}',
-                        isBold: true,
-                      ),
-                    ],
-                    if (isHost && tableData.table.status == TableStatus.claiming) ...[
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _hasUnclaimedItems(tableData.items)
-                              ? null
-                              : () => _lockBill(),
-                          child: const Text('Lock Bill & Start Collection'),
-                        ),
-                      ),
-                      if (_hasUnclaimedItems(tableData.items))
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            'All items must be claimed before locking',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.error,
-                                ),
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
-              ),
+              _buildStickyFooter(
+                  context, myTotal, unclaimedCount, isHost, tableData.items),
             ],
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 48,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(height: 16),
-              Text('Error: $error'),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
-                },
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.deepBerry)),
+        error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
-  Widget _buildStatusChip(BuildContext context, TableStatus status) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    Color bgColor;
-    Color textColor;
-    String text;
-
-    switch (status) {
-      case TableStatus.claiming:
-        bgColor = colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1);
-        textColor = colorScheme.primary;
-        text = 'Claiming';
-        break;
-      case TableStatus.collecting:
-        bgColor = colorScheme.error.withOpacity(isDark ? 0.2 : 0.1);
-        textColor = colorScheme.error;
-        text = 'Collecting';
-        break;
-      case TableStatus.settled:
-        bgColor = colorScheme.primary.withOpacity(isDark ? 0.15 : 0.08);
-        textColor = colorScheme.primary;
-        text = 'Settled';
-        break;
-      case TableStatus.cancelled:
-        bgColor = colorScheme.onSurface.withOpacity(isDark ? 0.15 : 0.08);
-        textColor = colorScheme.onSurface.withOpacity(0.6);
-        text = 'Cancelled';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16),
+  // --- FIXED: Explicit Back Button ---
+  PreferredSizeWidget _buildAppBar(BuildContext context, String? tableCode) {
+    return AppBar(
+      backgroundColor: AppColors.snow,
+      elevation: 0,
+      centerTitle: false,
+      // THE FIX: Explicit Leading Button
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back, color: AppColors.darkFig),
+        onPressed: () {
+          // Try to pop, if stack empty, go home
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/home');
+          }
+        },
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bill Items',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppColors.darkFig,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          if (tableCode != null)
+            Row(
+              children: [
+                Text(
+                  'Code: ',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.darkFig.withOpacity(0.6),
+                      ),
+                ),
+                SelectableText(
+                  tableCode,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.deepBerry,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.0,
+                      ),
+                ),
+              ],
+            ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildSummaryRow(
-    BuildContext context,
-    String label,
-    String value, {
-    bool isBold = false,
-  }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-            color: colorScheme.onSurface,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: isBold ? colorScheme.primary : colorScheme.onSurface,
-            fontSize: isBold ? 18 : 14,
-          ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.people_outline, color: AppColors.darkFig),
+          onPressed: () => _showParticipantsSheet(context),
         ),
       ],
     );
   }
 
-  double _calculateUserTotal(List items, String userId) {
-    double total = 0.0;
-    for (final item in items) {
-      total += item.getShareForUser(userId);
-    }
-    return total;
+  Widget _buildEmptyState(BuildContext context, bool isHost) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.receipt_long, size: 64, color: AppColors.paleGray),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            isHost ? "Scan a receipt to start" : "Waiting for Host...",
+            style: TextStyle(color: AppColors.darkFig.withOpacity(0.5)),
+          ),
+        ],
+      ),
+    );
   }
 
-  bool _hasUnclaimedItems(List items) {
-    return items.any((item) => !item.isClaimed);
-  }
-
-  void _onItemTap(String itemId) {
-    ref.read(currentTableProvider.notifier).claimItem(itemId);
-  }
-
-  void _onItemLongPress(item, participants) {
-    final isHost = ref.read(isHostProvider);
-
-    if (isHost && !item.isClaimed) {
-      // Show host options for unclaimed items
-      _showHostItemOptions(item, participants);
-    } else {
-      // Show regular split sheet
-      _showSplitSheet(item, participants);
-    }
-  }
-
-  void _showHostItemOptions(item, participants) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Split "${item.description}"',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
+  Widget _buildStickyFooter(BuildContext context, double myTotal,
+      int unclaimedCount, bool isHost, List<BillItem> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.snow,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "YOUR SHARE",
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.darkFig.withOpacity(0.5),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      Text(
+                        "${AppConstants.currencySymbol}${myTotal.toStringAsFixed(2)}",
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.deepBerry,
+                          fontFeatures: [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                _splitAmongAllDiners(item.id);
-              },
-              icon: const Icon(Icons.people),
-              label: const Text('Split Among All Diners'),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                _showSplitSheet(item, participants);
-              },
-              icon: const Icon(Icons.group_add),
-              label: const Text('Choose Specific People'),
-            ),
-            const SizedBox(height: 8),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-          ],
+                  _buildProgressRing(items),
+                ],
+              ),
+              if (isHost) ...[
+                const SizedBox(height: AppSpacing.md),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: unclaimedCount > 0
+                        ? () => _showUnclaimedDialog(unclaimedCount)
+                        : _lockBill,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: unclaimedCount > 0
+                          ? AppColors.paleGray
+                          : AppColors.deepBerry,
+                      foregroundColor: unclaimedCount > 0
+                          ? AppColors.darkFig.withOpacity(0.5)
+                          : AppColors.snow,
+                      elevation: unclaimedCount > 0 ? 0 : 2,
+                    ),
+                    child: Text(
+                      unclaimedCount > 0
+                          ? "$unclaimedCount Unclaimed Items Remaining"
+                          : "Lock Bill & Collect",
+                    ),
+                  ),
+                ),
+              ] else if (unclaimedCount > 0) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  "Waiting for group to finish claiming...",
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.darkFig.withOpacity(0.5),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showSplitSheet(item, participants) {
+  Widget _buildProgressRing(List<BillItem> items) {
+    if (items.isEmpty) return const SizedBox();
+    final claimed = items.where((i) => i.isClaimed).length;
+    final progress = claimed / items.length;
+
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        children: [
+          CircularProgressIndicator(
+            value: progress,
+            backgroundColor: AppColors.paleGray,
+            color: progress == 1.0 ? AppColors.lushGreen : AppColors.deepBerry,
+            strokeWidth: 4,
+          ),
+          Center(
+            child: progress == 1.0
+                ? const Icon(Icons.check, size: 20, color: AppColors.lushGreen)
+                : Text(
+                    "${(progress * 100).toInt()}%",
+                    style: const TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleClaimToggle(String itemId) {
+    ref.read(currentTableProvider.notifier).claimItem(itemId);
+    HapticFeedback.lightImpact();
+  }
+
+  void _showSplitSheet(BillItem item, List<Participant> participants) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        maxChildSize: 0.9,
+        initialChildSize: 0.65,
         minChildSize: 0.4,
+        maxChildSize: 0.9,
         builder: (context, scrollController) => ComplexSplitSheet(
           item: item,
           participants: participants,
           onSplit: (userIds) {
-            ref.read(currentTableProvider.notifier).splitItemAcrossUsers(item.id, userIds);
+            ref
+                .read(currentTableProvider.notifier)
+                .splitItemAcrossUsers(item.id, userIds);
           },
         ),
       ),
     );
   }
 
-  Future<void> _splitAmongAllDiners(String itemId) async {
-    try {
-      await ref.read(currentTableProvider.notifier).splitItemAmongAllDiners(itemId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Item split among all diners'),
-            backgroundColor: Theme.of(context).colorScheme.primary,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-  }
-
+  // --- FIXED: Implemented Participants Sheet ---
   void _showParticipantsSheet(BuildContext context) {
     final tableData = ref.read(currentTableProvider).valueOrNull;
     if (tableData == null) return;
 
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     showModalBottomSheet(
       context: context,
-      builder: (bottomSheetContext) => Container(
-        padding: const EdgeInsets.all(24),
+      backgroundColor: AppColors.snow,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Participants',
-              style: Theme.of(bottomSheetContext).textTheme.titleLarge?.copyWith(
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                "Who is here?",
+                style: TextStyle(
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
-                  ),
+                    color: AppColors.darkFig),
+              ),
             ),
             const SizedBox(height: 16),
-            ...tableData.participants.map((p) => ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1),
-                    child: Text(
-                      p.initials,
-                      style: TextStyle(
-                        color: colorScheme.primary,
-                        fontWeight: FontWeight.bold,
-                      ),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                itemCount: tableData.participants.length,
+                separatorBuilder: (ctx, i) =>
+                    const Divider(height: 1, color: AppColors.paleGray),
+                itemBuilder: (context, index) {
+                  final p = tableData.participants[index];
+                  final isHost = p.userId == tableData.table.hostUserId;
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: AppColors.lightBerry,
+                      backgroundImage: p.avatarUrl != null
+                          ? NetworkImage(p.avatarUrl!)
+                          : null,
+                      child: p.avatarUrl == null
+                          ? Text(p.initials,
+                              style: const TextStyle(
+                                  color: AppColors.deepBerry,
+                                  fontWeight: FontWeight.bold))
+                          : null,
                     ),
-                  ),
-                  title: Text(p.displayName),
-                  subtitle: Text('${AppConstants.currencySymbol}${p.totalOwed.toStringAsFixed(2)} owed'),
-                  trailing: p.userId == tableData.table.hostUserId
-                      ? Chip(
-                          label: const Text('Host'),
-                          backgroundColor:
-                              colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1),
-                        )
-                      : null,
-                )),
+                    title: Text(
+                      p.displayName,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.darkFig),
+                    ),
+                    trailing: isHost
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.deepBerry.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text("HOST",
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.deepBerry)),
+                          )
+                        : null,
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
+  void _showUnclaimedDialog(int count) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Unclaimed Items"),
+        content: Text(
+            "There are still $count items that nobody has claimed. You must assign them or split them among all diners before locking."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Go Back"),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _splitRemainingItems();
+            },
+            child: const Text("Split Remaining All"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _splitRemainingItems() async {
+    final items = ref.read(currentTableProvider).value!.items;
+    final orphans = items.where((i) => !i.isClaimed).toList();
+    for (var item in orphans) {
+      await ref
+          .read(currentTableProvider.notifier)
+          .splitItemAmongAllDiners(item.id);
+    }
+  }
+
   Future<void> _lockBill() async {
+    HapticFeedback.mediumImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Lock Bill?'),
+        title: const Text("Finalize Bill?"),
         content: const Text(
-          'Once locked, no more claims can be made. Participants will be asked to pay.',
-        ),
+            "This will lock claims and send payment requests to all guests."),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: const Text("Cancel",
+                style: TextStyle(color: AppColors.darkFig)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Lock Bill'),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.deepBerry),
+            child: const Text("Lock & Collect"),
           ),
         ],
       ),
@@ -580,5 +511,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     if (confirmed == true) {
       await ref.read(currentTableProvider.notifier).lockTable();
     }
+  }
+
+  double _calculateUserTotal(List<BillItem> items, String? userId) {
+    if (userId == null) return 0.0;
+    double total = 0.0;
+    for (final item in items) {
+      total += item.getShareForUser(userId);
+    }
+    return total;
   }
 }

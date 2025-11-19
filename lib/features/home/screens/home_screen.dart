@@ -1,547 +1,550 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../core/theme/app_spacing.dart';
+
+// Core Imports
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/providers/supabase_provider.dart';
 import '../../../core/widgets/app_drawer.dart';
+
+// Feature Imports
 import '../../table/providers/table_provider.dart';
 import '../../table/models/table_session.dart';
-import '../../table/repository/table_repository.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final activeTablesAsync = ref.watch(activeTablesProvider);
-    final currentUser = ref.watch(currentUserProvider);
-    final isHostOfActiveTable = ref.watch(isHostOfActiveTableProvider);
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
 
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 80,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [
-                      const Color(0xFF4A2C40),
-                      const Color(0xFF5A3C50),
-                    ]
-                  : [
-                      const Color(0xFFB70043),
-                      const Color(0xFFD9275D),
-                    ],
-            ),
-          ),
-        ),
-        centerTitle: true,
-        title: Text(
-          'pyble',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 38,
-            fontWeight: FontWeight.normal,
-            fontFamily: "Quip",
-            letterSpacing: 1.5,
-            shadows: [
-              Shadow(
-                offset: const Offset(0, 2),
-                blurRadius: 8,
-                color: Colors.black.withOpacity(0.2),
-              ),
-            ],
-          ),
-        ),
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Icon(
-              Icons.restaurant_menu,
-              color: Colors.white.withOpacity(0.8),
-              size: 22,
-            ),
-          ),
-        ],
-      ),
-      drawer: const AppDrawer(),
-      body: activeTablesAsync.when(
-        data: (allTables) {
-          // Filter to only show truly active tables (claiming or collecting)
-          final activeTables = allTables
-              .where((table) =>
-                  table.status == TableStatus.claiming ||
-                  table.status == TableStatus.collecting)
-              .toList();
-
-          return _buildTablesList(
-            context,
-            ref,
-            activeTables,
-            currentUser?.id,
-            isHostOfActiveTable.valueOrNull ?? false,
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 64,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Error loading tables',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                error.toString(),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              ElevatedButton(
-                onPressed: () => ref.refresh(activeTablesProvider),
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Refresh data when screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(activeTablesProvider);
+    });
   }
 
-  Widget _buildTablesList(
-    BuildContext context,
-    WidgetRef ref,
-    List<TableSession> tables,
-    String? currentUserId,
-    bool isHost,
-  ) {
-    // Check if user has any ACTIVE hosted tables (claiming or collecting)
-    final hasActiveHostedTable = tables.any((table) =>
-        table.hostUserId == currentUserId &&
-        (table.status == TableStatus.claiming ||
-            table.status == TableStatus.collecting));
+  Future<void> _refreshData() async {
+    ref.invalidate(activeTablesProvider);
+    // Wait for the provider to finish loading
+    await ref.read(activeTablesProvider.future);
+  }
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.refresh(activeTablesProvider);
-      },
-      child: CustomScrollView(
-        slivers: [
-          if (tables.isEmpty)
-            SliverFillRemaining(
-              child: _buildEmptyState(context, hasActiveHostedTable),
-            )
-          else
-            SliverPadding(
-              padding: AppSpacing.screenPadding.copyWith(top: AppSpacing.md),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    if (index < tables.length) {
-                      final table = tables[index];
-                      final isUserHost = table.hostUserId == currentUserId;
-                      return _buildTableCard(
-                        context,
-                        ref,
-                        table,
-                        isUserHost,
-                      );
-                    } else {
-                      // Action buttons at the bottom
-                      return _buildActionButtons(context, hasActiveHostedTable);
-                    }
-                  },
-                  childCount: tables.length + 1,
+  @override
+  Widget build(BuildContext context) {
+    final activeTablesAsync = ref.watch(activeTablesProvider);
+    final currentUser = ref.watch(currentUserProvider);
+
+    // LOGIC FIX: Calculate 'isHost' directly from the data to prevent desync.
+    // We check if the current user is the host of ANY table that is actively 'claiming' or 'collecting'.
+    final activeTablesList = activeTablesAsync.valueOrNull ?? [];
+    final isHost = activeTablesList.any((t) =>
+        t.hostUserId == currentUser?.id &&
+        (t.status == TableStatus.claiming ||
+            t.status == TableStatus.collecting));
+
+    return Scaffold(
+      backgroundColor: AppColors.lightCrust,
+      drawer: const AppDrawer(),
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        color: AppColors.deepBerry,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // 1. The Branded Header (With Quip Font)
+            _buildSliverAppBar(context),
+
+            // 2. The "Action Deck" (Host/Join Buttons)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+                child: _buildActionDeck(context, isHost),
+              ),
+            ),
+
+            // 3. Section Title
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.history_toggle_off,
+                        size: 16, color: AppColors.dusk),
+                    const SizedBox(width: 8),
+                    Text(
+                      "ACTIVE SESSIONS",
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: AppColors.dusk,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                    ),
+                  ],
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildEmptyState(BuildContext context, bool hasActiveHostedTable) {
-    final colorScheme = Theme.of(context).colorScheme;
+            // 4. The Live Ticket List
+            activeTablesAsync.when(
+              data: (tables) {
+                // Filter for UI: Only show Claiming or Collecting (Active)
+                final visibleTables = tables
+                    .where((t) =>
+                        t.status == TableStatus.claiming ||
+                        t.status == TableStatus.collecting)
+                    .toList();
 
-    return Center(
-      child: Padding(
-        padding: AppSpacing.screenPadding,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.table_restaurant,
-              size: 80,
-              color: colorScheme.onSurface.withOpacity(0.3),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Text(
-              'No Active Tables',
-              style: Theme.of(context).textTheme.headlineLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'You don\'t have any active tables.\nCreate a new table or join an existing one.\n\nCompleted tables can be found in History.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurface.withOpacity(0.7),
+                if (visibleTables.isEmpty) {
+                  return const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: _EmptyStateIllustration(),
+                  );
+                }
+
+                return SliverPadding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        return _TicketCard(
+                          table: visibleTables[index],
+                          currentUserId: currentUser?.id,
+                        );
+                      },
+                      childCount: visibleTables.length,
+                    ),
                   ),
-              textAlign: TextAlign.center,
+                );
+              },
+              loading: () => const SliverFillRemaining(
+                child: Center(
+                    child:
+                        CircularProgressIndicator(color: AppColors.deepBerry)),
+              ),
+              error: (e, _) => SliverFillRemaining(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 64, color: AppColors.warmSpice),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Unable to Load Tables',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.darkFig,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          e.toString(),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.darkFig.withOpacity(0.6),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: () => ref.invalidate(activeTablesProvider),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.deepBerry,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(height: AppSpacing.xl),
-            _buildActionButtons(context, hasActiveHostedTable),
+
+            // Bottom Padding for scrolling past FABs or bottom bars
+            const SliverToBoxAdapter(child: SizedBox(height: 80)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTableCard(
-    BuildContext context,
-    WidgetRef ref,
-    TableSession table,
-    bool isHost,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: colorScheme.onSurface.withOpacity(0.12),
-          width: 1,
-        ),
-      ),
-      child: InkWell(
-        onTap: () {
-          context.go('/table/${table.id}/claim');
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  // Table icon
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.table_restaurant,
-                      color: colorScheme.primary,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          table.title ?? 'Table ${table.code}',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Code: ${table.code}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurface.withOpacity(0.7),
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Status badge
-                  _buildStatusBadge(context, table.status),
-                  // Menu button for hosts
-                  if (isHost && table.status != TableStatus.settled && table.status != TableStatus.cancelled)
-                    PopupMenuButton<String>(
-                      icon: Icon(
-                        Icons.more_vert,
-                        color: colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                      onSelected: (value) {
-                        if (value == 'cancel') {
-                          _cancelTable(context, ref, table);
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'cancel',
-                          child: Row(
-                            children: [
-                              Icon(Icons.cancel, color: colorScheme.error, size: 20),
-                              const SizedBox(width: AppSpacing.sm),
-                              const Text('Cancel Table'),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                ],
+  // === 1. The Modern App Bar (With Quip Font) ===
+  Widget _buildSliverAppBar(BuildContext context) {
+    return SliverAppBar(
+      expandedHeight: 120.0,
+      floating: false,
+      pinned: true,
+      backgroundColor: AppColors.deepBerry,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        titlePadding: const EdgeInsets.only(left: 60, bottom: 14),
+        title: const Text(
+          'pyble',
+          style: TextStyle(
+            fontFamily: 'Quip', // FONT FIX: Reverted to Brand Font
+            fontWeight: FontWeight.normal,
+            letterSpacing: 1.5,
+            color: AppColors.snow,
+            fontSize: 32,
+            shadows: [
+              Shadow(
+                offset: Offset(0, 2),
+                blurRadius: 4,
+                color: Colors.black26,
               ),
-              const SizedBox(height: AppSpacing.md),
-              const Divider(height: 1),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  // Role badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isHost
-                          ? colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1)
-                          : colorScheme.surface.withOpacity(isDark ? 0.3 : 0.05),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      isHost ? 'HOST' : 'PARTICIPANT',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: isHost
-                                ? colorScheme.primary
-                                : colorScheme.onSurface.withOpacity(0.8),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 10,
-                            letterSpacing: 0.5,
-                          ),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Created date
-                  Text(
-                    _formatDate(table.createdAt),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                  ),
-                ],
+            ],
+          ),
+        ),
+        background: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFFB70043), // Original Brand Color
+                const Color(0xFFD9275D), // Lighter Gradient
+              ],
+            ),
+          ),
+          child: Stack(
+            children: [
+              // Subtle texture decoration
+              Positioned(
+                right: -20,
+                top: -20,
+                child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Colors.white.withOpacity(0.05)),
               ),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildStatusBadge(BuildContext context, TableStatus status) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    Color bgColor;
-    Color textColor;
-    String label;
-
-    switch (status) {
-      case TableStatus.claiming:
-        bgColor = colorScheme.primary.withOpacity(isDark ? 0.2 : 0.1);
-        textColor = colorScheme.primary;
-        label = 'Claiming';
-        break;
-      case TableStatus.collecting:
-        bgColor = colorScheme.error.withOpacity(isDark ? 0.2 : 0.1);
-        textColor = colorScheme.error;
-        label = 'Collecting';
-        break;
-      case TableStatus.settled:
-        bgColor = colorScheme.primary.withOpacity(isDark ? 0.15 : 0.08);
-        textColor = colorScheme.primary;
-        label = 'Settled';
-        break;
-      case TableStatus.cancelled:
-        bgColor = colorScheme.onSurface.withOpacity(isDark ? 0.15 : 0.08);
-        textColor = colorScheme.onSurface.withOpacity(0.6);
-        label = 'Cancelled';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 6,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w600,
-            ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context, bool hasActiveHostedTable) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!hasActiveHostedTable)
-          ElevatedButton.icon(
-            onPressed: () {
-              context.push('/table/create');
-            },
-            icon: const Icon(Icons.add),
-            label: const Text('Create New Table'),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: colorScheme.error.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: colorScheme.error.withOpacity(0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  color: colorScheme.error,
-                  size: 20,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'You can only host one table at a time. Close your current table to create a new one.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.error,
-                        ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        const SizedBox(height: AppSpacing.md),
-        OutlinedButton.icon(
-          onPressed: () {
-            context.push('/table/join');
-          },
-          icon: const Icon(Icons.qr_code_scanner),
-          label: const Text('Join Existing Table'),
+      leading: Builder(
+        builder: (context) => IconButton(
+          icon: const Icon(Icons.menu_rounded, color: AppColors.snow),
+          onPressed: () => Scaffold.of(context).openDrawer(),
         ),
-        const SizedBox(height: AppSpacing.lg),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_none, color: AppColors.snow),
+          onPressed: () {},
+        ),
       ],
     );
   }
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inMinutes < 1) {
-      return 'Just now';
-    } else if (difference.inHours < 1) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inDays < 1) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      final months = [
-        'Jan',
-        'Feb',
-        'Mar',
-        'Apr',
-        'May',
-        'Jun',
-        'Jul',
-        'Aug',
-        'Sep',
-        'Oct',
-        'Nov',
-        'Dec'
-      ];
-      return '${months[date.month - 1]} ${date.day}, ${date.year}';
-    }
-  }
-
-  Future<void> _cancelTable(BuildContext context, WidgetRef ref, TableSession table) async {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel Table?'),
-        content: Text(
-          'Are you sure you want to cancel "${table.title ?? 'Table ${table.code}'}\"? '
-          'This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('No'),
+  // === 2. The Action Deck ===
+  Widget _buildActionDeck(BuildContext context, bool isHost) {
+    return Row(
+      children: [
+        // CARD 1: Host
+        Expanded(
+          child: _ActionCard(
+            title: "Host Table",
+            subtitle: "Create New",
+            icon: Icons.add_business,
+            color: AppColors.deepBerry,
+            isOutlined: false,
+            isDisabled: isHost, // Controlled by local logic now
+            onTap: () => context.push('/table/create'),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.error,
+        ),
+        const SizedBox(width: 12),
+        // CARD 2: Join
+        Expanded(
+          child: _ActionCard(
+            title: "Join Table",
+            subtitle: "Scan Code",
+            icon: Icons.qr_code_scanner,
+            color: AppColors.darkFig,
+            isOutlined: true,
+            onTap: () => context.push('/table/join'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// === Sub-Widgets ===
+
+class _ActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final bool isOutlined;
+  final bool isDisabled;
+  final VoidCallback onTap;
+
+  const _ActionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    required this.isOutlined,
+    this.isDisabled = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: isDisabled ? 0.5 : 1.0,
+      child: Material(
+        color: isOutlined ? AppColors.snow : color,
+        borderRadius: AppRadius.allLg,
+        elevation: isOutlined ? 0 : 4,
+        shadowColor: color.withOpacity(0.3),
+        child: InkWell(
+          onTap: isDisabled
+              ? () {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text(
+                        "You are already hosting a table. Close it to start a new one."),
+                    backgroundColor: AppColors.warmSpice,
+                  ));
+                }
+              : onTap,
+          borderRadius: AppRadius.allLg,
+          child: Container(
+            height: 120,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: AppRadius.allLg,
+              border: isOutlined
+                  ? Border.all(color: AppColors.paleGray, width: 1.5)
+                  : null,
             ),
-            child: const Text('Yes, Cancel Table'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isOutlined
+                        ? AppColors.paleGray.withOpacity(0.3)
+                        : Colors.white.withOpacity(0.2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon,
+                      color: isOutlined ? color : Colors.white, size: 24),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      subtitle.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: isOutlined
+                            ? AppColors.darkFig.withOpacity(0.5)
+                            : Colors.white.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isOutlined ? AppColors.darkFig : Colors.white,
+                      ),
+                    ),
+                  ],
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketCard extends StatelessWidget {
+  final TableSession table;
+  final String? currentUserId;
+
+  const _TicketCard({required this.table, this.currentUserId});
+
+  @override
+  Widget build(BuildContext context) {
+    final isHost = table.hostUserId == currentUserId;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.snow,
+        borderRadius: AppRadius.allMd,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkFig.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.go('/table/${table.id}/claim'),
+          borderRadius: AppRadius.allMd,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                // 1. Status Strip
+                Container(
+                  width: 4,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: table.status == TableStatus.collecting
+                        ? AppColors.warmSpice
+                        : AppColors.deepBerry,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 16),
+
+                // 2. Icon
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.lightCrust,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child:
+                      const Icon(Icons.receipt_long, color: AppColors.darkFig),
+                ),
+                const SizedBox(width: 16),
+
+                // 3. Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        table.title ?? "Table ${table.code}",
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.darkFig),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (isHost) _buildTag("HOST", AppColors.deepBerry),
+                          if (table.status == TableStatus.collecting)
+                            _buildTag("COLLECTING", AppColors.warmSpice),
+                          Text(
+                            " • ${table.code}",
+                            style: TextStyle(
+                                color: AppColors.darkFig.withOpacity(0.5),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Icon(Icons.chevron_right, color: AppColors.paleGray),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
+  }
 
-    if (confirm != true || !context.mounted) return;
+  Widget _buildTag(String text, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+      ),
+    );
+  }
+}
 
-    try {
-      final repository = ref.read(tableRepositoryProvider);
-      await repository.cancelTable(table.id);
+class _EmptyStateIllustration extends StatelessWidget {
+  const _EmptyStateIllustration();
 
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Table "${table.title ?? table.code}" cancelled'),
-            backgroundColor: colorScheme.error,
-          ),
-        );
-        // Refresh the active tables list
-        ref.refresh(activeTablesProvider);
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error cancelling table: $e'),
-            backgroundColor: colorScheme.error,
-          ),
-        );
-      }
-    }
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                CircleAvatar(
+                    radius: 50,
+                    backgroundColor: AppColors.deepBerry.withOpacity(0.05)),
+                const Icon(Icons.restaurant, size: 40, color: AppColors.dusk),
+              ],
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              "Ready to Order?",
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.darkFig),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Start a new table or join your friends to split the bill instantly.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.darkFig.withOpacity(0.6),
+                  height: 1.5),
+            ),
+            const SizedBox(height: 40),
+            Column(
+              children: [
+                Text("Use buttons above",
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.darkFig.withOpacity(0.3))),
+                Icon(Icons.arrow_upward,
+                    size: 16, color: AppColors.darkFig.withOpacity(0.3)),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
   }
 }

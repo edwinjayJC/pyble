@@ -157,8 +157,17 @@ class AppTheme {
   // DARK THEME (FIXED & ALIGNED)
   //
   // ---
+  // ---
+  //
+  // DARK THEME (REMASTERED)
+  //
+  // ---
   static ThemeData get darkTheme {
-    final baseTextTheme = GoogleFonts.interTextTheme(ThemeData.dark().textTheme);
+    // Use the Light Crust color for text so it's not harsh white
+    final baseTextTheme = GoogleFonts.interTextTheme().apply(
+      bodyColor: AppColors.darkTextPrimary,
+      displayColor: AppColors.darkTextPrimary,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -167,24 +176,24 @@ class AppTheme {
 
       // Color Scheme
       colorScheme: const ColorScheme.dark(
-        primary: AppColors.brightBerry, // Use brighter color for accessibility
+        primary: AppColors.brightBerry,
         secondary: AppColors.brightBerry,
-        surface: AppColors.darkSurface, // Card backgrounds
-        background: AppColors.darkFigBackground, // Scaffold background
+        surface: AppColors.darkSurface, // Ink
+        background: AppColors.darkBackground, // Dark Plum
         error: AppColors.brightWarmSpice,
-        onPrimary: AppColors.darkFig, // High contrast text on brightBerry
-        onSecondary: AppColors.darkFig,
-        onSurface: AppColors.darkTextPrimary, // Main text on cards
-        onBackground: AppColors.darkTextPrimary, // Main text on scaffold
-        onError: AppColors.darkFig,
+        onPrimary: AppColors.darkPlum, // Dark text on bright buttons is easier to read
+        onSecondary: AppColors.darkPlum,
+        onSurface: AppColors.darkTextPrimary,
+        onBackground: AppColors.darkTextPrimary,
+        onError: AppColors.darkPlum,
       ),
 
-      scaffoldBackgroundColor: AppColors.darkFigBackground,
+      scaffoldBackgroundColor: AppColors.darkBackground, // Dark Plum (#1C0F16)
 
       // AppBar Theme
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.darkSurface,
-        foregroundColor: AppColors.darkTextPrimary, // Icon color
+        backgroundColor: AppColors.darkBackground, // Blend with background
+        foregroundColor: AppColors.darkTextPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
@@ -201,28 +210,27 @@ class AppTheme {
         headlineLarge: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
         headlineMedium: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
         bodyLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.normal, color: AppColors.darkTextPrimary),
-        bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal, color: AppColors.darkTextSecondary), // Secondary text
+        bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal, color: AppColors.darkTextSecondary),
         labelLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
-        bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.darkTextSecondary, letterSpacing: 0.2), // Secondary text
-      ).apply(
-        bodyColor: AppColors.darkTextPrimary,
-        displayColor: AppColors.darkTextPrimary,
+        bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.darkTextSecondary, letterSpacing: 0.2),
       ),
 
       // Button Themes
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.brightBerry,
-          foregroundColor: AppColors.darkFig, // High contrast text
+          foregroundColor: AppColors.darkPlum, // Black/Plum text on Neon Pink button = High Legibility
           minimumSize: const Size(0, 52),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
           textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-          elevation: 0, // No shadows on dark theme
-          disabledBackgroundColor: AppColors.darkBorder,
+          elevation: 0,
+          disabledBackgroundColor: AppColors.darkSurface,
           disabledForegroundColor: AppColors.darkTextDisabled,
         ),
       ),
+
+      // Outlined Button (Needs high contrast borders in dark mode)
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.brightBerry,
@@ -234,9 +242,9 @@ class AppTheme {
           side: WidgetStateProperty.resolveWith<BorderSide?>(
                 (Set<WidgetState> states) {
               if (states.contains(WidgetState.disabled)) {
-                return const BorderSide(color: AppColors.darkBorder, width: 2);
+                return const BorderSide(color: AppColors.darkBorder, width: 1);
               }
-              return const BorderSide(color: AppColors.brightBerry, width: 2);
+              return const BorderSide(color: AppColors.brightBerry, width: 1.5);
             },
           ),
           foregroundColor: WidgetStateProperty.resolveWith<Color?>(
@@ -249,65 +257,42 @@ class AppTheme {
           ),
         ),
       ),
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.brightBerry,
-          textStyle: GoogleFonts.inter(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
 
-      // Input Decoration Theme
+      // Input Decoration (Subtle borders, clear fill)
       inputDecorationTheme: const InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.darkSurface,
+        fillColor: AppColors.darkSurface, // Ink
         contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        labelStyle: TextStyle(color: AppColors.darkTextPrimary),
-        hintStyle: TextStyle(color: AppColors.darkTextSecondary),
+        labelStyle: TextStyle(color: AppColors.darkTextSecondary),
+        hintStyle: TextStyle(color: AppColors.darkTextDisabled),
+        // Borders
         border: OutlineInputBorder(
           borderRadius: AppRadius.allMd,
-          borderSide: BorderSide(color: AppColors.darkBorder, width: 1.5),
+          borderSide: BorderSide(color: AppColors.darkBorder, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppRadius.allMd,
-          borderSide: BorderSide(color: AppColors.darkBorder, width: 1.5),
+          borderSide: BorderSide(color: AppColors.darkBorder, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppRadius.allMd,
-          borderSide: BorderSide(color: AppColors.brightBerry, width: 2),
+          borderSide: BorderSide(color: AppColors.brightBerry, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: AppRadius.allMd,
-          borderSide: BorderSide(color: AppColors.brightWarmSpice, width: 2),
+          borderSide: BorderSide(color: AppColors.brightWarmSpice, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: AppRadius.allMd,
-          borderSide: BorderSide(color: AppColors.brightWarmSpice, width: 2),
+          borderSide: BorderSide(color: AppColors.brightWarmSpice, width: 1.5),
         ),
         errorStyle: TextStyle(color: AppColors.brightWarmSpice),
       ),
 
-      // Divider Theme
       dividerTheme: const DividerThemeData(
         color: AppColors.darkBorder,
         thickness: 1,
         space: 1,
-      ),
-
-      // Switch Theme
-      switchTheme: SwitchThemeData(
-        trackColor: WidgetStateProperty.resolveWith<Color?>(
-              (states) => states.contains(WidgetState.selected)
-              ? AppColors.brightBerry.withOpacity(0.5)
-              : AppColors.darkBorder,
-        ),
-        thumbColor: WidgetStateProperty.resolveWith<Color?>(
-              (states) => states.contains(WidgetState.selected)
-              ? AppColors.brightBerry
-              : AppColors.darkTextSecondary,
-        ),
       ),
     );
   }
