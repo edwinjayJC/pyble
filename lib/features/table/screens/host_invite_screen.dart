@@ -338,8 +338,8 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
         width: double.infinity,
         child: ElevatedButton(
           onPressed: () {
-            // Navigate to claiming screen
-            context.go('/table/${widget.tableId}/claim');
+            // Navigate to scan bill screen
+            context.go('/table/${widget.tableId}/scan');
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: theme.colorScheme.primary,
@@ -349,7 +349,7 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
             shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
           ),
           child: const Text(
-            "Everyone is Here - Let's Order",
+            "Next - Scan Bill",
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),

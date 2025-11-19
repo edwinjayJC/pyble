@@ -55,8 +55,8 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        imageQuality: 85, // Slightly higher quality for OCR
-        maxWidth: 1920,   // Limit size to prevent OOM
+        imageQuality: 85,
+        maxWidth: 1920,
       );
 
       if (image != null) {
@@ -66,7 +66,6 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           _isScanning = true;
         });
 
-        // Trigger OCR
         await _scanBill(bytes, image.mimeType ?? 'image/jpeg');
       }
     } catch (e) {
@@ -86,12 +85,12 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
       await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
 
       if (mounted) {
-        HapticFeedback.mediumImpact(); // Success Thud
+        HapticFeedback.mediumImpact();
         _showSuccessSnackBar('✨ Magic! Found $count items.');
       }
     } catch (e) {
       if (mounted) {
-        _showManualEntryOptions(); // Fallback immediately on error
+        _showManualEntryOptions();
       }
     } finally {
       if (mounted) setState(() => _isScanning = false);
@@ -109,7 +108,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
       );
       if (mounted) {
         HapticFeedback.lightImpact();
-        Navigator.pop(context); // Close dialog
+        Navigator.pop(context);
         _descriptionController.clear();
         _priceController.clear();
       }
@@ -130,7 +129,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
       );
       if (mounted) {
         HapticFeedback.lightImpact();
-        Navigator.pop(context); // Close dialog
+        Navigator.pop(context);
         _descriptionController.clear();
         _priceController.clear();
       }
@@ -195,7 +194,6 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
 
   void _showSuccessSnackBar(String message) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Use Bright Green in dark mode for better contrast
     final color = isDark ? AppColors.brightGreen : AppColors.lushGreen;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -204,34 +202,30 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
   }
 
   // ==========================================
-  // MAIN BUILD
+  // MAIN UI
   // ==========================================
 
   @override
   Widget build(BuildContext context) {
     final tableDataAsync = ref.watch(currentTableProvider);
     final items = tableDataAsync.valueOrNull?.items ?? [];
-    final hasItems = items.isNotEmpty;
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Digitize Bill',
-            style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Digitize Bill',
+          style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: Icon(Icons.close, color: theme.colorScheme.onSurface),
           onPressed: () => context.go('/home'),
         ),
-        actions: [
-          if (hasItems)
-            TextButton(
-              onPressed: () => context.go('/table/${widget.tableId}/invite'),
-              child: const Text("Next", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            )
-        ],
+        // Removed duplicate "Next" button here. Footer handles it.
       ),
       body: tableDataAsync.when(
         loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
@@ -240,20 +234,14 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           if (_isScanning) {
             return _buildScanningState();
           }
-
           if (items.isEmpty) {
             return _buildCameraView();
           }
-
           return _buildReceiptView(items);
         },
       ),
     );
   }
-
-  // ==========================================
-  // SUB-VIEWS
-  // ==========================================
 
   // View 1: The Lens (Empty State)
   Widget _buildCameraView() {
@@ -266,7 +254,6 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           const Spacer(),
-          // Illustration
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
@@ -274,9 +261,9 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
-                    blurRadius: 20,
-                    spreadRadius: 5
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  blurRadius: 20,
+                  spreadRadius: 5,
                 ),
               ],
             ),
@@ -289,9 +276,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           Text(
             "Snap the Bill",
             style: theme.textTheme.headlineLarge?.copyWith(
-                color: onSurface,
-                fontWeight: FontWeight.bold
-            ),
+                color: onSurface, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           Text(
@@ -300,13 +285,11 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
             style: TextStyle(
                 fontSize: 16,
                 color: onSurface.withOpacity(0.6),
-                height: 1.5
-            ),
+                height: 1.5),
           ),
 
           const Spacer(),
 
-          // Hero Button
           SizedBox(
             width: double.infinity,
             height: 56,
@@ -324,7 +307,6 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Secondary Options
           Row(
             children: [
               Expanded(
@@ -360,8 +342,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           SizedBox(
             width: 80,
             height: 80,
-            child: CircularProgressIndicator(
-                strokeWidth: 6, color: theme.colorScheme.primary),
+            child: CircularProgressIndicator(strokeWidth: 6, color: theme.colorScheme.primary),
           ),
           const SizedBox(height: 32),
           Text(
@@ -396,19 +377,18 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(12),
-                    // Subtle border for visibility in Dark Mode
                     border: isDark ? Border.all(color: theme.dividerColor) : null,
                     boxShadow: [
                       BoxShadow(
-                          color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-                          blurRadius: 15,
-                          offset: const Offset(0, 4)
+                        color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+                        blurRadius: 15,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: Column(
                     children: [
-                      // Receipt Header
+                      // Header
                       Padding(
                         padding: const EdgeInsets.all(24),
                         child: Column(
@@ -416,13 +396,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                             Icon(Icons.storefront, color: theme.colorScheme.onSurface, size: 32),
                             const SizedBox(height: 8),
                             Text("BILL DETAILS",
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    letterSpacing: 1.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface
-                                )
-                            ),
+                                style: TextStyle(fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                             const SizedBox(height: 16),
                             Divider(height: 1, color: theme.dividerColor),
                           ],
@@ -446,14 +420,12 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                               padding: const EdgeInsets.only(right: 24),
                               decoration: BoxDecoration(
                                 color: theme.colorScheme.error,
-                                borderRadius: BorderRadius.circular(0),
+                                // Slight rounding on delete background
+                                borderRadius: BorderRadius.circular(4),
                               ),
                               child: Icon(Icons.delete, color: theme.colorScheme.onError),
                             ),
-                            confirmDismiss: (direction) async {
-                              // Note: You can implement a quick confirm dialog here if needed
-                              return true;
-                            },
+                            confirmDismiss: (direction) async => true,
                             onDismissed: (direction) => _deleteItem(item.id),
                             child: InkWell(
                               onTap: () => _showEditItemDialog(item),
@@ -465,11 +437,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                                     Expanded(
                                       child: Text(
                                         item.description,
-                                        style: TextStyle(
-                                            fontSize: 16,
-                                            color: theme.colorScheme.onSurface,
-                                            height: 1.3
-                                        ),
+                                        style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface, height: 1.3),
                                       ),
                                     ),
                                     const SizedBox(width: 16),
@@ -500,13 +468,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text("Total",
-                                style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface
-                                )
-                            ),
+                            Text("Total", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                             Text(
                               "${AppConstants.currencySymbol}${total.toStringAsFixed(2)}",
                               style: TextStyle(
@@ -520,7 +482,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                         ),
                       ),
 
-                      // Jagged Edge Visual
+                      // Jagged Bottom
                       Container(
                         height: 12,
                         decoration: BoxDecoration(
@@ -542,16 +504,14 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                       onPressed: _showAddItemDialog,
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text("Add Item"),
-                      style: TextButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurface.withOpacity(0.6)),
+                      style: TextButton.styleFrom(foregroundColor: theme.colorScheme.onSurface.withOpacity(0.6)),
                     ),
                     const SizedBox(width: 16),
                     TextButton.icon(
                       onPressed: _clearAndRescan,
                       icon: const Icon(Icons.camera_alt, size: 18),
                       label: const Text("Scan Again"),
-                      style: TextButton.styleFrom(
-                          foregroundColor: theme.colorScheme.onSurface.withOpacity(0.6)),
+                      style: TextButton.styleFrom(foregroundColor: theme.colorScheme.onSurface.withOpacity(0.6)),
                     ),
                   ],
                 ),
@@ -584,8 +544,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
                 ),
-                child: const Text("Looks Good, Invite Friends",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text("Looks Good, Invite Friends", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ),
@@ -602,6 +561,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
     final theme = Theme.of(context);
     showModalBottomSheet(
       context: context,
+      // FIX: Use Theme Surface Color (was AppColors.snow)
       backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Padding(

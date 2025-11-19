@@ -96,7 +96,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
       final tableData = ref.read(currentTableProvider).valueOrNull;
 
       if (tableData != null && mounted) {
-        context.go('/table/${tableData.table.id}/scan');
+        context.go('/table/${tableData.table.id}/invite');
       }
     } catch (e) {
       if (mounted) {
