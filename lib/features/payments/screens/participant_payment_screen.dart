@@ -1,15 +1,21 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:pyble/features/payments/providers/payment_provider.dart';
+
+// Core Imports
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/supabase_provider.dart';
+
+// Feature Imports
 import '../../table/providers/table_provider.dart';
 import '../../table/models/participant.dart';
-import '../../table/repository/table_repository.dart';
-import '../providers/payment_provider.dart';
+import '../../table/models/table_session.dart'; // For PaymentStatus
+import '../repository/payment_repository.dart';
 
 class ParticipantPaymentScreen extends ConsumerStatefulWidget {
   final String tableId;
@@ -24,25 +30,42 @@ class ParticipantPaymentScreen extends ConsumerStatefulWidget {
 class _ParticipantPaymentScreenState
     extends ConsumerState<ParticipantPaymentScreen> {
   bool _isProcessing = false;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+      _refreshData();
     });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  Future<void> _refreshData() async {
+    // Hard refresh to ensure status is accurate
+    ref.invalidate(currentTableProvider);
+    await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
   }
 
   @override
   Widget build(BuildContext context) {
     final tableAsync = ref.watch(currentTableProvider);
     final currentUser = ref.watch(currentUserProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Payment'),
+        title: Text('Settle Up', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
           onPressed: () => context.pop(),
         ),
       ),
@@ -52,43 +75,34 @@ class _ParticipantPaymentScreenState
             return const Center(child: Text('No data available'));
           }
 
-          final participant = tableData.participants.firstWhere(
-            (p) => p.userId == currentUser.id,
+          final me = tableData.participants.firstWhere(
+                (p) => p.userId == currentUser.id,
             orElse: () => Participant(
-              id: '',
+              id: 'unknown',
               tableId: '',
-              userId: '',
-              displayName: '',
+              userId: 'unknown',
+              displayName: '?',
               paymentStatus: PaymentStatus.owing,
             ),
           );
 
-          if (participant.id.isEmpty) {
-            return const Center(child: Text('You are not part of this table'));
-          }
-
-          // Find host info
           final host = tableData.participants.firstWhere(
-            (p) => p.userId == tableData.table.hostUserId,
-            orElse: () => participant,
+                (p) => p.userId == tableData.table.hostUserId,
+            orElse: () => me,
           );
 
-          return _buildPaymentScreen(context, tableData, participant, host);
+          return _buildScreenContent(context, me, host);
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
         error: (error, stack) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline,
-                  size: 48, color: AppColors.warmSpice),
+              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
               const SizedBox(height: AppSpacing.md),
               Text('Error: $error'),
-              const SizedBox(height: AppSpacing.md),
-              ElevatedButton(
-                onPressed: () => ref
-                    .read(currentTableProvider.notifier)
-                    .loadTable(widget.tableId),
+              TextButton(
+                onPressed: _refreshData,
                 child: const Text('Retry'),
               ),
             ],
@@ -98,26 +112,28 @@ class _ParticipantPaymentScreenState
     );
   }
 
-  Widget _buildPaymentScreen(
-    BuildContext context,
-    TableData tableData,
-    Participant participant,
-    Participant host,
-  ) {
-    // Check payment status
-    if (participant.paymentStatus == PaymentStatus.paid) {
-      return _buildSettledScreen(context, participant);
+  Widget _buildScreenContent(
+      BuildContext context,
+      Participant me,
+      Participant host,
+      ) {
+    // 1. SETTLED
+    if (me.paymentStatus == PaymentStatus.paid) {
+      return _buildSettledView(context, me);
     }
 
-    if (participant.paymentStatus == PaymentStatus.pendingConfirmation) {
-      return _buildPendingConfirmationScreen(context, participant, host);
+    // 2. PENDING
+    if (me.paymentStatus == PaymentStatus.pendingConfirmation) {
+      return _buildPendingView(context, me, host);
     }
 
-    // Owing state - show payment options
-    return _buildOwingScreen(context, tableData, participant, host);
+    // 3. OWING
+    return _buildOwingView(context, me, host);
   }
 
-  Widget _buildSettledScreen(BuildContext context, Participant participant) {
+  // === VIEW 1: SETTLED ===
+  Widget _buildSettledView(BuildContext context, Participant me) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: AppSpacing.screenPadding,
@@ -125,29 +141,25 @@ class _ParticipantPaymentScreenState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              decoration: BoxDecoration(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
                 color: AppColors.lightGreen,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.check_circle,
-                size: 80,
-                color: AppColors.lushGreen,
-              ),
+              child: const Icon(Icons.check, size: 64, color: AppColors.lushGreen),
             ),
             const SizedBox(height: AppSpacing.xl),
             Text(
-              "You're All Settled!",
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppColors.lushGreen,
-                    fontWeight: FontWeight.bold,
-                  ),
+              "You're All Set!",
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: AppColors.lushGreen,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              'Payment of ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)} confirmed',
-              style: Theme.of(context).textTheme.bodyLarge,
+              'Payment of ${AppConstants.currencySymbol}${me.totalOwed.toStringAsFixed(2)} confirmed',
+              style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -161,11 +173,9 @@ class _ParticipantPaymentScreenState
     );
   }
 
-  Widget _buildPendingConfirmationScreen(
-    BuildContext context,
-    Participant participant,
-    Participant host,
-  ) {
+  // === VIEW 2: PENDING ===
+  Widget _buildPendingView(BuildContext context, Participant me, Participant host) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
         padding: AppSpacing.screenPadding,
@@ -173,57 +183,47 @@ class _ParticipantPaymentScreenState
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              decoration: BoxDecoration(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
                 color: AppColors.lightWarmSpice,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.pending,
-                size: 80,
-                color: AppColors.warmSpice,
-              ),
+              child: const Icon(Icons.hourglass_top, size: 48, color: AppColors.warmSpice),
             ),
             const SizedBox(height: AppSpacing.xl),
             Text(
-              'Awaiting Host Confirmation',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppColors.warmSpice,
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              'You marked your payment of ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)} as paid outside the app.',
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.center,
+              'Waiting for Host',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: AppColors.warmSpice,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Waiting for ${host.displayName} to confirm receipt.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.darkFig.withOpacity(0.7),
-                  ),
+              'You marked this as paid manually.\nWaiting for ${host.displayName} to confirm.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppSpacing.xl),
-            const CircularProgressIndicator(
-              color: AppColors.warmSpice,
-            ),
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(color: AppColors.warmSpice),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildOwingScreen(
-    BuildContext context,
-    TableData tableData,
-    Participant participant,
-    Participant host,
-  ) {
-    final amount = participant.totalOwed;
-    final fee = amount * AppConstants.appFeePercentage;
+  // === VIEW 3: OWING (THE SELECTION SCREEN) ===
+  Widget _buildOwingView(
+      BuildContext context,
+      Participant me,
+      Participant host,
+      ) {
+    final theme = Theme.of(context);
+    final amount = me.totalOwed;
+    // UPDATE: Fee dropped to 2%
+    final fee = amount * 0.02;
     final totalWithFee = amount + fee;
 
     return SingleChildScrollView(
@@ -231,85 +231,83 @@ class _ParticipantPaymentScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: AppSpacing.xl),
+          const SizedBox(height: AppSpacing.md),
 
-          // Amount Card
+          // 1. Bill Summary Receipt
           Container(
-            padding: const EdgeInsets.all(AppSpacing.lg),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.lightCrust,
-              borderRadius: AppRadius.allMd,
-              border: Border.all(color: AppColors.paleGray),
+              color: theme.colorScheme.surface,
+              borderRadius: AppRadius.allLg,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               children: [
                 Text(
-                  'You owe ${host.displayName}',
-                  style: Theme.of(context).textTheme.bodyLarge,
+                  'YOU OWE',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      letterSpacing: 1.5
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: 8),
                 Text(
                   '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: AppColors.deepBerry,
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: TextStyle(
+                    fontSize: 48,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: theme.dividerColor),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text("To: ", style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 12)),
+                      const SizedBox(width: 4),
+                      Text(host.displayName, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 12)),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: AppSpacing.xl),
-
-          // Payment Options
+          const SizedBox(height: 32),
           Text(
-            'How would you like to pay?',
-            style: Theme.of(context).textTheme.titleLarge,
-            textAlign: TextAlign.center,
+            'Select Payment Method',
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          // 2. OPTION A: PAY IN APP (The "Happy Path")
+          // We visually prioritize this to encourage adoption despite the (small) fee.
+          _buildInAppPaymentOption(
+              context,
+              amount: amount,
+              fee: fee,
+              total: totalWithFee
           ),
 
-          const SizedBox(height: AppSpacing.lg),
+          const SizedBox(height: 16),
 
-          // Pay in App Option
-          _buildPaymentOption(
-            context: context,
-            title: 'Pay in App',
-            subtitle: 'Instant settlement',
-            icon: Icons.credit_card,
-            color: AppColors.deepBerry,
-            isPrimary: true,
-            details: [
-              _buildFeeRow('Amount', '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}'),
-              _buildFeeRow('Service Fee (4%)', '${AppConstants.currencySymbol}${fee.toStringAsFixed(2)}'),
-              const Divider(),
-              _buildFeeRow('Total', '${AppConstants.currencySymbol}${totalWithFee.toStringAsFixed(2)}',
-                  isBold: true),
-            ],
-            onTap: _isProcessing ? null : () => _initiateInAppPayment(amount),
-          ),
-
-          const SizedBox(height: AppSpacing.md),
-
-          // Paid Outside Option
-          _buildPaymentOption(
-            context: context,
-            title: 'Mark as Paid Outside',
-            subtitle: 'Cash, bank transfer, etc.',
-            icon: Icons.money_off,
-            color: AppColors.darkFig,
-            isPrimary: false,
-            details: [
-              Text(
-                'Pay the host directly with cash or transfer, then they will confirm receipt in the app.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.darkFig.withOpacity(0.7),
-                    ),
-              ),
-            ],
-            onTap: _isProcessing
-                ? null
-                : () => _markPaidOutside(participant),
-          ),
+          // 3. OPTION B: PAY OUTSIDE (The "Manual Path")
+          _buildManualPaymentOption(context, host, me),
 
           const SizedBox(height: AppSpacing.xl),
         ],
@@ -317,133 +315,140 @@ class _ParticipantPaymentScreenState
     );
   }
 
-  Widget _buildPaymentOption({
-    required BuildContext context,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required bool isPrimary,
-    required List<Widget> details,
-    required VoidCallback? onTap,
-  }) {
+  Widget _buildInAppPaymentOption(BuildContext context, {required double amount, required double fee, required double total}) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       decoration: BoxDecoration(
-        color: isPrimary ? color.withOpacity(0.05) : AppColors.snow,
+        // Light Mode: Use Brand Color bg (Stand out). Dark Mode: Use Surface (Clean).
+        color: isDark ? theme.colorScheme.surface : AppColors.lightBerry,
         borderRadius: AppRadius.allMd,
-        border: Border.all(
-          color: isPrimary ? color : AppColors.paleGray,
-          width: isPrimary ? 2 : 1,
-        ),
+        border: Border.all(color: theme.colorScheme.primary, width: 1.5),
       ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: AppRadius.allMd,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(icon, color: color, size: 32),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: color,
-                                ),
-                          ),
-                          Text(
-                            subtitle,
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: AppColors.darkFig.withOpacity(0.7),
-                                    ),
-                          ),
-                        ],
-                      ),
+      child: InkWell(
+        onTap: _isProcessing ? null : () => _initiateInAppPayment(amount),
+        borderRadius: AppRadius.allMd,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.bolt, color: theme.colorScheme.primary, size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            "Instant Pay",
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary
+                            )
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                            "Secure. Instant. Done.",
+                            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.7))
+                        ),
+                      ],
                     ),
-                    if (isPrimary)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: AppSpacing.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: Text(
-                          'RECOMMENDED',
-                          style:
-                              Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: AppColors.snow,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.md),
-                ...details,
-                const SizedBox(height: AppSpacing.md),
-                SizedBox(
-                  width: double.infinity,
-                  child: isPrimary
-                      ? ElevatedButton(
-                          onPressed: onTap,
-                          child: _isProcessing
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: AppColors.snow,
-                                  ),
-                                )
-                              : const Text('Pay Now'),
-                        )
-                      : OutlinedButton(
-                          onPressed: onTap,
-                          child: const Text('Mark as Paid Outside'),
-                        ),
-                ),
-              ],
-            ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                        "RECOMMENDED",
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary)
+                    ),
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Divider(height: 1),
+              ),
+
+              // Transparent Math
+              _buildMathRow(context, "Bill Amount", amount),
+              _buildMathRow(context, "Service Fee (2%)", fee), // Highlighting the low fee
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Total Charge", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  Text(
+                      '${AppConstants.currencySymbol}${total.toStringAsFixed(2)}',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: theme.colorScheme.primary)
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildFeeRow(String label, String value, {bool isBold = false}) {
+  Widget _buildManualPaymentOption(BuildContext context, Participant host, Participant me) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: AppRadius.allMd,
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: InkWell(
+        onTap: _isProcessing ? null : () => _markPaidOutside(me, host),
+        borderRadius: AppRadius.allMd,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.handshake_outlined, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        "Pay Outside App",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                        "Cash, EFT, or Wallet. Requires host confirmation.",
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.disabledColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMathRow(BuildContext context, String label, double value) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Text(label, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6))),
           Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                ),
-          ),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                ),
+              '${AppConstants.currencySymbol}${value.toStringAsFixed(2)}',
+              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6))
           ),
         ],
       ),
@@ -452,91 +457,82 @@ class _ParticipantPaymentScreenState
 
   Future<void> _initiateInAppPayment(double amount) async {
     setState(() => _isProcessing = true);
-
     try {
       final paymentRepo = ref.read(paymentRepositoryProvider);
       final response = await paymentRepo.initiatePayment(
         tableId: widget.tableId,
         amount: amount,
       );
-
       if (mounted) {
-        context.push(
-          '/payment-webview/${widget.tableId}',
-          extra: response,
-        );
+        context.push('/payment-webview/${widget.tableId}', extra: response);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error initiating payment: $e'),
-            backgroundColor: AppColors.warmSpice,
-          ),
-        );
-      }
+      if (mounted) _showError(e.toString());
     } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _markPaidOutside(Participant me, Participant host) async {
+    // Improved Interaction: Bottom Sheet instead of Alert Dialog
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Confirm Manual Payment", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            Text(
+              "Did you pay ${AppConstants.currencySymbol}${me.totalOwed.toStringAsFixed(2)} to ${host.displayName}?",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text("Cancel"),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.darkFig),
+                    child: const Text("Yes, I Paid"),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isProcessing = true);
+      try {
+        await ref.read(paymentRepositoryProvider).markPaidOutside(tableId: widget.tableId);
+        // Force refresh to see the pending state
+        await _refreshData();
+      } catch (e) {
+        if (mounted) _showError(e.toString());
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
       }
     }
   }
 
-  Future<void> _markPaidOutside(Participant participant) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Mark as Paid Outside'),
-        content: Text(
-          'By marking this as paid outside, you confirm that you have paid ${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)} to the host through another method (cash, bank transfer, etc.).\n\nThe host will need to confirm receipt before you are marked as paid.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Confirm'),
-          ),
-        ],
-      ),
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error),
     );
-
-    if (confirm != true || !mounted) return;
-
-    setState(() => _isProcessing = true);
-
-    try {
-      final paymentRepo = ref.read(paymentRepositoryProvider);
-      await paymentRepo.markPaidOutside(
-        tableId: widget.tableId,
-      );
-
-      // Reload table data to update status
-      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Marked as paid. Awaiting host confirmation.'),
-            backgroundColor: AppColors.warmSpice,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.warmSpice,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-      }
-    }
   }
 }

@@ -1,209 +1,356 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+
+// Core Imports
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/constants/app_constants.dart';
-import '../providers/table_provider.dart';
 
-class HostInviteScreen extends ConsumerWidget {
+// Feature Imports
+import '../providers/table_provider.dart';
+import '../../table/models/participant.dart';
+
+class HostInviteScreen extends ConsumerStatefulWidget {
   final String tableId;
 
   const HostInviteScreen({super.key, required this.tableId});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tableData = ref.watch(currentTableProvider).valueOrNull;
+  ConsumerState<HostInviteScreen> createState() => _HostInviteScreenState();
+}
 
-    if (tableData == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Invite Participants')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
+  Timer? _pollingTimer;
 
-    final tableCode = tableData.table.code;
-    final joinLink =
-        '${AppConstants.appScheme}://${AppConstants.joinPath}?code=$tableCode';
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    final tableDataAsync = ref.watch(currentTableProvider);
+    final theme = Theme.of(context);
 
     return Scaffold(
+      // FIX: Adapt background (Light Crust vs Dark Plum)
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text('Invite Participants'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Navigate to claiming screen
-              context.go('/table/$tableId/claim');
-            },
-            child: const Text('Done'),
+        title: Text('Invite Friends',
+            style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: theme.colorScheme.onSurface),
+          onPressed: () => context.go('/home'),
+        ),
+      ),
+      body: tableDataAsync.when(
+        loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+        error: (e, _) => Center(child: Text('Error: $e')),
+        data: (tableData) {
+          if (tableData == null) return const Center(child: Text("Table not found"));
+
+          final tableCode = tableData.table.code;
+          final joinLink = '${AppConstants.appScheme}://${AppConstants.joinPath}?code=$tableCode';
+          final participants = tableData.participants;
+
+          return SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: AppSpacing.md),
+
+                        // 1. The "Hero" QR Card
+                        _buildQRCard(context, joinLink),
+
+                        const SizedBox(height: AppSpacing.xl),
+
+                        // 2. The Code & Share Actions
+                        _buildCodeSection(context, tableCode, joinLink),
+
+                        const SizedBox(height: AppSpacing.xl),
+
+                        // 3. The "Live Lobby"
+                        _buildLobbySection(context, participants),
+
+                        const SizedBox(height: AppSpacing.xl),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 4. Sticky "Let's Go" Button
+                _buildStickyFooter(context),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // === Sub-Widgets ===
+
+  Widget _buildQRCard(BuildContext context, String joinLink) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        // FIX: Surface color
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: AppSpacing.screenPadding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Share with your table',
-                style: Theme.of(context).textTheme.headlineLarge,
-                textAlign: TextAlign.center,
+      child: Column(
+        children: [
+          // QR Code Wrapper
+          // We purposely keep the QR background WHITE even in dark mode
+          // to ensure the Deep Berry / Dark Fig contrast works for cameras.
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: QrImageView(
+              data: joinLink,
+              version: QrVersions.auto,
+              size: 200.0,
+              backgroundColor: Colors.white,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.circle,
+                color: AppColors.deepBerry,
               ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Participants can scan the QR code or enter the code to join',
-                style: Theme.of(context).textTheme.bodyLarge,
-                textAlign: TextAlign.center,
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.circle,
+                color: AppColors.darkFig,
               ),
-              const SizedBox(height: AppSpacing.xl),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Scan to Join",
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              // QR Code
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.snow,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.darkFig.withValues(alpha: 0.1),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: QrImageView(
-                  data: joinLink,
-                  version: QrVersions.auto,
-                  size: 250.0,
-                  backgroundColor: AppColors.snow,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: AppColors.deepBerry,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: AppColors.darkFig,
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
+  Widget _buildCodeSection(BuildContext context, String code, String link) {
+    final theme = Theme.of(context);
 
-              // Table Code
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                  vertical: AppSpacing.lg,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.lightCrust,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Table Code',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      tableCode,
-                      style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            letterSpacing: 8,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: tableCode));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Code copied to clipboard'),
-                            backgroundColor: AppColors.lushGreen,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.copy, size: 18),
-                      label: const Text('Copy Code'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
+    return Column(
+      children: [
+        // Monospace Code Display
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          decoration: BoxDecoration(
+            // FIX: Surface Color
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: theme.dividerColor),
+          ),
+          child: Text(
+            code,
+            style: TextStyle(
+              fontFamily: 'Courier', // FORCE MONOSPACE
+              fontSize: 32,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 8,
+              // FIX: Text Color
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
 
-              // Share Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Share.share(
-                      'Join my Pyble table!\n\n'
-                      'Code: $tableCode\n'
-                      'Link: $joinLink\n\n'
-                      'Download Pyble to split bills easily!',
-                    );
-                  },
-                  icon: const Icon(Icons.share),
-                  label: const Text('Share Invite Link'),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
+        // Action Buttons Row
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            TextButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: code));
+                HapticFeedback.selectionClick();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Code copied!'),
+                    backgroundColor: theme.colorScheme.primary,
+                    duration: const Duration(milliseconds: 1000),
+                  ),
+                );
+              },
+              icon: Icon(Icons.copy, size: 18, color: theme.colorScheme.primary),
+              label: Text("Copy Code", style: TextStyle(color: theme.colorScheme.primary)),
+            ),
+            Container(height: 20, width: 1, color: theme.dividerColor),
+            TextButton.icon(
+              onPressed: () {
+                Share.share('Join my Pyble table! Code: $code\nLink: $link');
+              },
+              icon: Icon(Icons.share, size: 18, color: theme.colorScheme.primary),
+              label: Text("Share Link", style: TextStyle(color: theme.colorScheme.primary)),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-              // Participants Status
-              if (tableData.participants.isNotEmpty) ...[
-                const Divider(height: AppSpacing.xl),
-                Text(
-                  'Participants Joined',
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                ...tableData.participants.map((participant) => ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: AppColors.deepBerry,
-                        child: Text(
-                          participant.initials,
-                          style: const TextStyle(color: AppColors.snow),
-                        ),
-                      ),
-                      title: Text(participant.displayName),
-                      trailing: const Icon(
-                        Icons.check_circle,
-                        color: AppColors.lushGreen,
-                      ),
-                    )),
-              ] else ...[
-                const SizedBox(height: AppSpacing.lg),
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: AppColors.lightCrust,
-                    borderRadius: BorderRadius.circular(12),
+  Widget _buildLobbySection(BuildContext context, List<Participant> participants) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.people_outline, size: 20, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 8),
+            Text(
+              "IN THE LOBBY (${participants.length})",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 12,
+                letterSpacing: 1.0,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        if (participants.isEmpty)
+        // Empty State
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: 24, height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: theme.disabledColor),
                   ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.people_outline,
-                        size: 48,
-                        color: AppColors.disabledText,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'Waiting for participants to join...',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.disabledText,
-                            ),
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  Text(
+                    "Waiting for friends...",
+                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4), fontStyle: FontStyle.italic),
                   ),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.lg),
-            ],
+                ],
+              ),
+            ),
+          )
+        else
+        // The Avatar Cluster (Wrap)
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: participants.map((p) => _buildLobbyAvatar(context, p)).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLobbyAvatar(BuildContext context, Participant p) {
+    final theme = Theme.of(context);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppColors.lushGreen, width: 2), // Green ring = Joined
+          ),
+          child: CircleAvatar(
+            radius: 24,
+            // FIX: Use Theme for avatar bg
+            backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+            backgroundImage: p.avatarUrl != null ? NetworkImage(p.avatarUrl!) : null,
+            child: p.avatarUrl == null
+                ? Text(p.initials, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.primary))
+                : null,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          p.displayName.split(' ').first, // First name only for layout
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStickyFooter(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        // FIX: Footer background
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5)
+          ),
+        ],
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: () {
+            // Navigate to claiming screen
+            context.go('/table/${widget.tableId}/claim');
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: theme.colorScheme.primary,
+            foregroundColor: theme.colorScheme.onPrimary,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            elevation: 2,
+            shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
+          ),
+          child: const Text(
+            "Everyone is Here - Let's Order",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),
       ),

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For FontFeature
+
+// Core Imports
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/constants/app_constants.dart';
+
+// Feature Imports
 import '../models/bill_item.dart';
 import '../models/participant.dart';
 
@@ -11,7 +16,6 @@ class BillItemRow extends StatelessWidget {
   final String? currentUserId;
   final bool isHost;
 
-  // CHANGED: Explicit callbacks for distinct actions
   final VoidCallback? onClaimToggle;
   final VoidCallback? onSplit;
 
@@ -27,19 +31,22 @@ class BillItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     final isClaimedByMe = currentUserId != null && item.isClaimedByUser(currentUserId!);
     final isShared = item.claimantsCount > 1;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      // DESIGN FIX: Clean white background. Don't color the whole card pink/red.
-      color: AppColors.snow,
-      elevation: 0, // Flat modern look
+      // FIX: Use Surface Color (Snow vs Ink)
+      color: colorScheme.surface,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.allMd,
         side: BorderSide(
-          // DESIGN FIX: Use border color to indicate state, not background
-          color: isClaimedByMe ? AppColors.deepBerry : AppColors.paleGray,
+          // FIX: Use Primary for active, Divider for inactive
+          color: isClaimedByMe ? colorScheme.primary : theme.dividerColor,
           width: isClaimedByMe ? 2 : 1,
         ),
       ),
@@ -57,9 +64,9 @@ class BillItemRow extends StatelessWidget {
                     children: [
                       Text(
                         item.description,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.darkFig,
+                          color: colorScheme.onSurface, // Dark Fig / White
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -69,9 +76,9 @@ class BillItemRow extends StatelessWidget {
                         children: [
                           Text(
                             '${AppConstants.currencySymbol}${item.price.toStringAsFixed(2)}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color: AppColors.darkFig.withOpacity(0.6),
+                              color: colorScheme.onSurface.withOpacity(0.6),
                               fontFeatures: [const FontFeature.tabularFigures()],
                             ),
                           ),
@@ -80,15 +87,16 @@ class BillItemRow extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.paleGray,
+                                // FIX: Use divider color for neutral background
+                                color: theme.dividerColor.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 "÷${item.claimantsCount}",
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.darkFig,
+                                  color: colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -102,22 +110,18 @@ class BillItemRow extends StatelessWidget {
                 // 2. The Action Cluster (Right Side)
                 Row(
                   children: [
-                    // THE FIX: Visible Split Button
                     _buildSplitButton(context, isShared),
-
                     const SizedBox(width: 8),
-
-                    // THE FIX: Explicit Claim Button
                     _buildClaimButton(context, isClaimedByMe),
                   ],
                 ),
               ],
             ),
 
-            // 3. Avatar Footer (Only if others are involved)
+            // 3. Avatar Footer
             if (item.claimantsCount > 0) ...[
               const SizedBox(height: 8),
-              const Divider(height: 1, color: AppColors.paleGray),
+              const Divider(height: 1),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -126,10 +130,10 @@ class BillItemRow extends StatelessWidget {
                   if (isClaimedByMe && isShared)
                     Text(
                       "Your share: ${AppConstants.currencySymbol}${item.getShareForUser(currentUserId!).toStringAsFixed(2)}",
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.deepBerry,
+                        color: colorScheme.primary,
                       ),
                     ),
                 ],
@@ -141,8 +145,11 @@ class BillItemRow extends StatelessWidget {
     );
   }
 
-  // === NEW COMPONENT: The Split Button ===
+  // === THEME-AWARE SPLIT BUTTON ===
   Widget _buildSplitButton(BuildContext context, bool isShared) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -151,26 +158,31 @@ class BillItemRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isShared ? AppColors.lightBerry : Colors.transparent,
+            // Active: Tinted Primary. Inactive: Transparent
+            color: isShared ? colorScheme.primary.withOpacity(0.1) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isShared ? AppColors.deepBerry.withOpacity(0.3) : Colors.transparent,
+              color: isShared ? colorScheme.primary.withOpacity(0.3) : Colors.transparent,
             ),
           ),
           child: Icon(
-            Icons.call_split, // The universal "Branch/Split" icon
+            Icons.call_split,
             size: 20,
-            color: isShared ? AppColors.deepBerry : AppColors.darkFig.withOpacity(0.4),
+            // Active: Primary. Inactive: Faded Text Color
+            color: isShared ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.4),
           ),
         ),
       ),
     );
   }
 
-  // === NEW COMPONENT: The Claim Toggle ===
+  // === THEME-AWARE CLAIM BUTTON ===
   Widget _buildClaimButton(BuildContext context, bool isClaimedByMe) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Material(
-      color: isClaimedByMe ? AppColors.deepBerry : Colors.transparent,
+      color: isClaimedByMe ? colorScheme.primary : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onClaimToggle,
@@ -181,7 +193,7 @@ class BillItemRow extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isClaimedByMe ? AppColors.deepBerry : AppColors.paleGray,
+              color: isClaimedByMe ? colorScheme.primary : theme.dividerColor,
               width: 1.5,
             ),
           ),
@@ -189,7 +201,8 @@ class BillItemRow extends StatelessWidget {
             isClaimedByMe ? "Mine" : "Claim",
             style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: isClaimedByMe ? AppColors.snow : AppColors.darkFig,
+              // Active: OnPrimary (White/Black). Inactive: OnSurface (Fig/White)
+              color: isClaimedByMe ? colorScheme.onPrimary : colorScheme.onSurface,
             ),
           ),
         ),
@@ -197,7 +210,11 @@ class BillItemRow extends StatelessWidget {
     );
   }
 
+  // === THEME-AWARE AVATARS ===
   Widget _buildClaimedByAvatars(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     const maxAvatars = 4;
     final claimants = item.claimedBy.take(maxAvatars).toList();
     final overflow = item.claimantsCount - maxAvatars;
@@ -214,33 +231,38 @@ class BillItemRow extends StatelessWidget {
               tableId: '',
               userId: claim.userId,
               displayName: '?',
-              // initials: '?',
               paymentStatus: PaymentStatus.owing,
             ),
           );
 
           return Transform.translate(
-            offset: Offset(index * -8.0, 0), // Overlap effect
+            offset: Offset(index * -8.0, 0),
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: AppColors.snow, width: 2),
+                // Border matches the Card background to create "cutout" effect
+                border: Border.all(color: colorScheme.surface, width: 2),
               ),
               child: CircleAvatar(
                 radius: 12,
+                backgroundImage: participant.avatarUrl != null
+                    ? NetworkImage(participant.avatarUrl!)
+                    : null,
                 backgroundColor: claim.userId == currentUserId
-                    ? AppColors.deepBerry
-                    : AppColors.paleGray,
-                child: Text(
+                    ? colorScheme.primary
+                    : theme.dividerColor,
+                child: participant.avatarUrl == null
+                    ? Text(
                   participant.initials,
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: claim.userId == currentUserId
-                        ? AppColors.snow
-                        : AppColors.darkFig,
+                        ? colorScheme.onPrimary
+                        : colorScheme.onSurface,
                   ),
-                ),
+                )
+                    : null,
               ),
             ),
           );
@@ -250,10 +272,10 @@ class BillItemRow extends StatelessWidget {
             offset: Offset(claimants.length * -8.0, 0),
             child: CircleAvatar(
               radius: 12,
-              backgroundColor: AppColors.lightCrust,
+              backgroundColor: theme.dividerColor,
               child: Text(
                 '+$overflow',
-                style: const TextStyle(fontSize: 9, color: AppColors.darkFig),
+                style: TextStyle(fontSize: 9, color: colorScheme.onSurface),
               ),
             ),
           ),

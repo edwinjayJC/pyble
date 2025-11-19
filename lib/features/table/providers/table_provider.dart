@@ -49,9 +49,12 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     }
   }
 
-  Future<void> loadTable(String tableId) async {
+  Future<void> loadTable(String tableId, {bool showLoading = true}) async {
     final repository = ref.read(tableRepositoryProvider);
-    state = const AsyncValue.loading();
+
+    if (showLoading) {
+      state = const AsyncValue.loading();
+    }
 
     try {
       final tableData = await repository.getTableData(tableId);
@@ -59,6 +62,19 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
       _startPolling(tableId);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Silently refresh table data without showing loading indicator
+  Future<void> refreshTable(String tableId) async {
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      final tableData = await repository.getTableData(tableId);
+      state = AsyncValue.data(tableData);
+      _startPolling(tableId);
+    } catch (e) {
+      // Silently fail, keep current state
     }
   }
 
@@ -158,9 +174,8 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
         final alreadyClaimed = item.isClaimedByUser(currentUser.id);
         if (alreadyClaimed) {
           // Remove claim
-          final newClaimedBy = item.claimedBy
-              .where((c) => c.userId != currentUser.id)
-              .toList();
+          final newClaimedBy =
+              item.claimedBy.where((c) => c.userId != currentUser.id).toList();
           return item.copyWith(claimedBy: newClaimedBy);
         } else {
           // Add claim
@@ -199,8 +214,7 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     }
   }
 
-  Future<void> splitItemAcrossUsers(
-      String itemId, List<String> userIds) async {
+  Future<void> splitItemAcrossUsers(String itemId, List<String> userIds) async {
     final currentData = state.valueOrNull;
     if (currentData == null) return;
 
@@ -211,8 +225,7 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
       if (item.id == itemId) {
         final sharePerPerson = item.price / userIds.length;
         final newClaimedBy = userIds
-            .map((userId) =>
-                ClaimedBy(userId: userId, share: sharePerPerson))
+            .map((userId) => ClaimedBy(userId: userId, share: sharePerPerson))
             .toList();
         return item.copyWith(claimedBy: newClaimedBy);
       }

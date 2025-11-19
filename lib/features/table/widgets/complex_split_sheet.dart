@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pyble/core/constants/app_constants.dart';
-import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_colors.dart'; // Keep for specific accents if needed
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../models/bill_item.dart';
@@ -30,7 +30,6 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
   void initState() {
     super.initState();
     // Pre-select current claimants.
-    // If nobody claimed it yet, pre-select NOBODY (let user choose).
     _selectedUserIds = widget.item.claimedBy.map((c) => c.userId).toSet();
   }
 
@@ -63,12 +62,17 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     final allSelected = _selectedUserIds.length == widget.participants.length;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.snow,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        // FIX: Adapt Surface Color (Snow vs Ink)
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -81,7 +85,8 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: AppColors.paleGray,
+                // FIX: Use Divider Color
+                color: theme.dividerColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -98,16 +103,16 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                     children: [
                       Text(
                         'Split Item',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        style: theme.textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.darkFig,
+                          color: colorScheme.onSurface,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         widget.item.description,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.darkFig.withOpacity(0.7),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface.withOpacity(0.7),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -122,15 +127,15 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                       'Total',
                       style: TextStyle(
                         fontSize: 12,
-                        color: AppColors.darkFig.withOpacity(0.5),
+                        color: colorScheme.onSurface.withOpacity(0.5),
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
                       '${AppConstants.currencySymbol}${widget.item.price.toStringAsFixed(2)}',
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.deepBerry,
+                        color: colorScheme.primary,
                         fontFeatures: [const FontFeature.tabularFigures()],
                       ),
                     ),
@@ -140,7 +145,7 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
             ),
           ),
 
-          const Divider(height: 1, color: AppColors.paleGray),
+          Divider(height: 1, color: theme.dividerColor),
 
           // 3. "Select All" Toggle
           InkWell(
@@ -151,14 +156,14 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                 children: [
                   Icon(
                     allSelected ? Icons.check_circle : Icons.circle_outlined,
-                    color: allSelected ? AppColors.deepBerry : AppColors.paleGray,
+                    color: allSelected ? colorScheme.primary : theme.dividerColor,
                   ),
                   const SizedBox(width: 12),
                   Text(
                     allSelected ? "Deselect All" : "Select Everyone",
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: AppColors.darkFig,
+                      color: colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -176,7 +181,7 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                 final participant = widget.participants[index];
                 final isSelected = _selectedUserIds.contains(participant.userId);
 
-                return _buildParticipantRow(participant, isSelected);
+                return _buildParticipantRow(context, participant, isSelected);
               },
             ),
           ),
@@ -185,10 +190,10 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.snow,
+              color: colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, -5),
                 ),
@@ -202,22 +207,23 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: AppColors.lightBerry,
+                      // FIX: Use primary with opacity for tint
+                      color: colorScheme.primary.withOpacity(0.1),
                       borderRadius: AppRadius.allMd,
-                      border: Border.all(color: AppColors.deepBerry.withOpacity(0.2)),
+                      border: Border.all(color: colorScheme.primary.withOpacity(0.2)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.pie_chart,
-                                size: 16, color: AppColors.deepBerry),
+                            Icon(Icons.pie_chart,
+                                size: 16, color: colorScheme.primary),
                             const SizedBox(width: 8),
                             Text(
                               '${_selectedUserIds.length} people',
-                              style: const TextStyle(
-                                color: AppColors.deepBerry,
+                              style: TextStyle(
+                                color: colorScheme.primary,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -225,10 +231,10 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                         ),
                         Text(
                           '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)} / each',
-                          style: const TextStyle(
-                            color: AppColors.deepBerry,
+                          style: TextStyle(
+                            color: colorScheme.primary,
                             fontWeight: FontWeight.bold,
-                            fontFeatures: [FontFeature.tabularFigures()],
+                            fontFeatures: [const FontFeature.tabularFigures()],
                           ),
                         ),
                       ],
@@ -242,8 +248,8 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                       child: OutlinedButton(
                         onPressed: () => Navigator.pop(context),
                         style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.paleGray),
-                          foregroundColor: AppColors.darkFig,
+                          side: BorderSide(color: theme.dividerColor),
+                          foregroundColor: colorScheme.onSurface,
                         ),
                         child: const Text('Cancel'),
                       ),
@@ -259,8 +265,9 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                           Navigator.pop(context);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.deepBerry,
-                          disabledBackgroundColor: AppColors.paleGray,
+                          backgroundColor: colorScheme.primary,
+                          foregroundColor: colorScheme.onPrimary,
+                          disabledBackgroundColor: theme.disabledColor,
                         ),
                         child: const Text('Confirm Split'),
                       ),
@@ -275,7 +282,10 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
     );
   }
 
-  Widget _buildParticipantRow(Participant participant, bool isSelected) {
+  Widget _buildParticipantRow(BuildContext context, Participant participant, bool isSelected) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -285,10 +295,11 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.lightBerry.withOpacity(0.5) : AppColors.snow,
+            // FIX: Adaptive selection color
+            color: isSelected ? colorScheme.primary.withOpacity(0.1) : colorScheme.surface,
             borderRadius: AppRadius.allMd,
             border: Border.all(
-              color: isSelected ? AppColors.deepBerry : AppColors.paleGray,
+              color: isSelected ? colorScheme.primary : theme.dividerColor,
               width: isSelected ? 2 : 1,
             ),
           ),
@@ -302,12 +313,12 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                     backgroundImage: participant.avatarUrl != null
                         ? NetworkImage(participant.avatarUrl!)
                         : null,
-                    backgroundColor: isSelected ? AppColors.snow : AppColors.paleGray,
+                    backgroundColor: isSelected ? colorScheme.surface : theme.dividerColor,
                     child: participant.avatarUrl == null
                         ? Text(
                       participant.initials,
                       style: TextStyle(
-                        color: isSelected ? AppColors.deepBerry : AppColors.darkFig,
+                        color: isSelected ? colorScheme.primary : colorScheme.onSurface,
                         fontWeight: FontWeight.bold,
                       ),
                     )
@@ -318,15 +329,15 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                       right: 0,
                       bottom: 0,
                       child: Container(
-                        decoration: const BoxDecoration(
-                          color: AppColors.deepBerry,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primary,
                           shape: BoxShape.circle,
                         ),
                         padding: const EdgeInsets.all(2),
-                        child: const Icon(
+                        child: Icon(
                             Icons.check,
                             size: 10,
-                            color: Colors.white
+                            color: colorScheme.onPrimary
                         ),
                       ),
                     ),
@@ -341,7 +352,7 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? AppColors.deepBerry : AppColors.darkFig,
+                    color: isSelected ? colorScheme.primary : colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -351,7 +362,7 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                 Text(
                   '${AppConstants.currencySymbol}${_splitAmount.toStringAsFixed(2)}',
                   style: TextStyle(
-                    color: AppColors.deepBerry.withOpacity(0.8),
+                    color: colorScheme.primary.withOpacity(0.8),
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),

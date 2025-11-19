@@ -31,24 +31,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   @override
   void initState() {
     super.initState();
-    // Load table data - provider handles polling automatically
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final currentData = ref.read(currentTableProvider).valueOrNull;
       if (currentData?.table.id == widget.tableId) {
-        // Same table already loaded, refresh silently without loading indicator
         ref.read(currentTableProvider.notifier).refreshTable(widget.tableId);
       } else {
-        // Different table or no data, load with loading indicator
         ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
       }
     });
-  }
-
-  @override
-  void dispose() {
-    // Stop polling when leaving the screen
-    ref.read(currentTableProvider.notifier).stopPolling();
-    super.dispose();
   }
 
   @override
@@ -56,10 +46,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     final tableDataAsync = ref.watch(currentTableProvider);
     final currentUser = ref.watch(currentUserProvider);
     final isHost = ref.watch(isHostProvider);
+    final theme = Theme.of(context);
 
     ref.listen<TableStatus?>(tableStatusProvider, (previous, next) {
       if (previous == TableStatus.claiming && next == TableStatus.collecting) {
-        // Provider handles polling cleanup automatically
+        ref.read(currentTableProvider.notifier).stopPolling();
         if (isHost) {
           context.go('/table/${widget.tableId}/dashboard');
         } else {
@@ -69,15 +60,16 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     });
 
     return Scaffold(
-      backgroundColor: AppColors.lightCrust,
+      // FIX: Adapt background color (Light Crust vs Dark Plum)
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: _buildAppBar(context, tableDataAsync.valueOrNull?.table.code),
       body: tableDataAsync.when(
         data: (tableData) {
           if (tableData == null) return const Center(child: Text('No Data'));
 
-          // Redirect if table is in collecting status
           if (tableData.table.status == TableStatus.collecting) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref.read(currentTableProvider.notifier).stopPolling();
               if (isHost) {
                 context.go('/table/${widget.tableId}/dashboard');
               } else {
@@ -87,31 +79,28 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Redirect if settled
           if (tableData.table.status == TableStatus.settled) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               context.go('/home');
             });
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle, size: 64, color: Colors.green),
-                  SizedBox(height: 16),
-                  Text('Table Settled'),
+                  Icon(Icons.check_circle, size: 64, color: theme.colorScheme.primary),
+                  const SizedBox(height: 16),
+                  Text('Table Settled', style: TextStyle(color: theme.colorScheme.onSurface)),
                 ],
               ),
             );
           }
 
-          // Only show the claiming UI if status is claiming
           if (tableData.table.status != TableStatus.claiming) {
             return const Center(child: CircularProgressIndicator());
           }
 
           final myTotal = _calculateUserTotal(tableData.items, currentUser?.id);
-          final unclaimedCount =
-              tableData.items.where((i) => !i.isClaimed).length;
+          final unclaimedCount = tableData.items.where((i) => !i.isClaimed).length;
 
           return Column(
             children: [
@@ -119,46 +108,45 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 child: tableData.items.isEmpty
                     ? _buildEmptyState(context, isHost)
                     : ListView.builder(
-                        padding: const EdgeInsets.only(
-                            top: AppSpacing.sm, bottom: AppSpacing.xl),
-                        itemCount: tableData.items.length,
-                        itemBuilder: (context, index) {
-                          final item = tableData.items[index];
-                          return BillItemRow(
-                            item: item,
-                            participants: tableData.participants,
-                            currentUserId: currentUser?.id,
-                            isHost: isHost,
-                            onClaimToggle: () => _handleClaimToggle(item.id),
-                            onSplit: () =>
-                                _showSplitSheet(item, tableData.participants),
-                          );
-                        },
-                      ),
+                  padding: const EdgeInsets.only(
+                      top: AppSpacing.sm, bottom: AppSpacing.xl),
+                  itemCount: tableData.items.length,
+                  itemBuilder: (context, index) {
+                    final item = tableData.items[index];
+                    return BillItemRow(
+                      item: item,
+                      participants: tableData.participants,
+                      currentUserId: currentUser?.id,
+                      isHost: isHost,
+                      onClaimToggle: () => _handleClaimToggle(item.id),
+                      onSplit: () =>
+                          _showSplitSheet(item, tableData.participants),
+                    );
+                  },
+                ),
               ),
               _buildStickyFooter(
                   context, myTotal, unclaimedCount, isHost, tableData.items),
             ],
           );
         },
-        loading: () => const Center(
-            child: CircularProgressIndicator(color: AppColors.deepBerry)),
+        loading: () => Center(
+            child: CircularProgressIndicator(color: theme.colorScheme.primary)),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
-  // --- FIXED: Explicit Back Button ---
   PreferredSizeWidget _buildAppBar(BuildContext context, String? tableCode) {
+    final theme = Theme.of(context);
     return AppBar(
-      backgroundColor: AppColors.snow,
+      // FIX: Adapt surface color (Snow vs Ink)
+      backgroundColor: theme.colorScheme.surface,
       elevation: 0,
       centerTitle: false,
-      // THE FIX: Explicit Leading Button
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back, color: AppColors.darkFig),
+        icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
         onPressed: () {
-          // Try to pop, if stack empty, go home
           if (context.canPop()) {
             context.pop();
           } else {
@@ -171,27 +159,27 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         children: [
           Text(
             'Bill Items',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.darkFig,
-                  fontWeight: FontWeight.bold,
-                ),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           if (tableCode != null)
             Row(
               children: [
                 Text(
                   'Code: ',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.darkFig.withOpacity(0.6),
-                      ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
                 ),
                 SelectableText(
                   tableCode,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.deepBerry,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
-                      ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.0,
+                  ),
                 ),
               ],
             ),
@@ -199,7 +187,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.people_outline, color: AppColors.darkFig),
+          icon: Icon(Icons.people_outline, color: theme.colorScheme.onSurface),
           onPressed: () => _showParticipantsSheet(context),
         ),
       ],
@@ -207,15 +195,16 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   }
 
   Widget _buildEmptyState(BuildContext context, bool isHost) {
+    final theme = Theme.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.receipt_long, size: 64, color: AppColors.paleGray),
+          Icon(Icons.receipt_long, size: 64, color: theme.disabledColor),
           const SizedBox(height: AppSpacing.md),
           Text(
             isHost ? "Scan a receipt to start" : "Waiting for Host...",
-            style: TextStyle(color: AppColors.darkFig.withOpacity(0.5)),
+            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)),
           ),
         ],
       ),
@@ -224,12 +213,17 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
   Widget _buildStickyFooter(BuildContext context, double myTotal,
       int unclaimedCount, bool isHost, List<BillItem> items) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final colorScheme = theme.colorScheme;
+
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.snow,
+        // FIX: Adapt Footer background
+        color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),
@@ -252,22 +246,22 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.darkFig.withOpacity(0.5),
+                          color: theme.colorScheme.onSurface.withOpacity(0.5),
                           letterSpacing: 1.0,
                         ),
                       ),
                       Text(
                         "${AppConstants.currencySymbol}${myTotal.toStringAsFixed(2)}",
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.deepBerry,
-                          fontFeatures: [FontFeature.tabularFigures()],
+                          color: theme.colorScheme.primary,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],
                   ),
-                  _buildProgressRing(items),
+                  _buildProgressRing(context, items),
                 ],
               ),
               if (isHost) ...[
@@ -279,12 +273,16 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                         ? () => _showUnclaimedDialog(unclaimedCount)
                         : _lockBill,
                     style: ElevatedButton.styleFrom(
+                      // FIX: Use onSurface with low opacity for the "Greyed Out" look
+                      // This works perfectly in both Light (Grey) and Dark (Dark Grey) modes.
                       backgroundColor: unclaimedCount > 0
-                          ? AppColors.paleGray
-                          : AppColors.deepBerry,
+                          ? colorScheme.onSurface.withOpacity(0.12)
+                          : colorScheme.primary,
+
                       foregroundColor: unclaimedCount > 0
-                          ? AppColors.darkFig.withOpacity(0.5)
-                          : AppColors.snow,
+                          ? colorScheme.onSurface.withOpacity(0.6) // Slightly darker text
+                          : colorScheme.onPrimary,
+
                       elevation: unclaimedCount > 0 ? 0 : 2,
                     ),
                     child: Text(
@@ -300,7 +298,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                   "Waiting for group to finish claiming...",
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.darkFig.withOpacity(0.5),
+                    color: colorScheme.onSurface.withOpacity(0.5),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -312,10 +310,15 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  Widget _buildProgressRing(List<BillItem> items) {
+  Widget _buildProgressRing(BuildContext context, List<BillItem> items) {
+    final theme = Theme.of(context);
     if (items.isEmpty) return const SizedBox();
+
     final claimed = items.where((i) => i.isClaimed).length;
     final progress = claimed / items.length;
+
+    final isComplete = progress == 1.0;
+    final activeColor = isComplete ? AppColors.lushGreen : theme.colorScheme.primary;
 
     return SizedBox(
       width: 40,
@@ -324,18 +327,21 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         children: [
           CircularProgressIndicator(
             value: progress,
-            backgroundColor: AppColors.paleGray,
-            color: progress == 1.0 ? AppColors.lushGreen : AppColors.deepBerry,
+            backgroundColor: theme.dividerColor,
+            color: activeColor,
             strokeWidth: 4,
           ),
           Center(
-            child: progress == 1.0
-                ? const Icon(Icons.check, size: 20, color: AppColors.lushGreen)
+            child: isComplete
+                ? Icon(Icons.check, size: 20, color: activeColor)
                 : Text(
-                    "${(progress * 100).toInt()}%",
-                    style: const TextStyle(
-                        fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
+              "${(progress * 100).toInt()}%",
+              style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface
+              ),
+            ),
           ),
         ],
       ),
@@ -369,14 +375,15 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  // --- FIXED: Implemented Participants Sheet ---
   void _showParticipantsSheet(BuildContext context) {
     final tableData = ref.read(currentTableProvider).valueOrNull;
     if (tableData == null) return;
 
+    final theme = Theme.of(context);
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.snow,
+      backgroundColor: theme.colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
       ),
@@ -386,14 +393,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
                 "Who is here?",
                 style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.darkFig),
+                    color: theme.colorScheme.onSurface),
               ),
             ),
             const SizedBox(height: 16),
@@ -402,43 +409,44 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 shrinkWrap: true,
                 itemCount: tableData.participants.length,
                 separatorBuilder: (ctx, i) =>
-                    const Divider(height: 1, color: AppColors.paleGray),
+                    Divider(height: 1, color: theme.dividerColor),
                 itemBuilder: (context, index) {
                   final p = tableData.participants[index];
                   final isHost = p.userId == tableData.table.hostUserId;
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: AppColors.lightBerry,
+                      // FIX: Use themed background for avatars
+                      backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                       backgroundImage: p.avatarUrl != null
                           ? NetworkImage(p.avatarUrl!)
                           : null,
                       child: p.avatarUrl == null
                           ? Text(p.initials,
-                              style: const TextStyle(
-                                  color: AppColors.deepBerry,
-                                  fontWeight: FontWeight.bold))
+                          style: TextStyle(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.bold))
                           : null,
                     ),
                     title: Text(
                       p.displayName,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.darkFig),
+                          color: theme.colorScheme.onSurface),
                     ),
                     trailing: isHost
                         ? Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.deepBerry.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Text("HOST",
-                                style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.deepBerry)),
-                          )
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text("HOST",
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: theme.colorScheme.primary)),
+                    )
                         : null,
                   );
                 },
@@ -451,6 +459,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   }
 
   void _showUnclaimedDialog(int count) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -486,6 +495,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
   Future<void> _lockBill() async {
     HapticFeedback.mediumImpact();
+    final theme = Theme.of(context);
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -495,13 +506,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel",
-                style: TextStyle(color: AppColors.darkFig)),
+            child: Text("Cancel", style: TextStyle(color: theme.colorScheme.onSurface)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: AppColors.deepBerry),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: theme.colorScheme.primary,
+                foregroundColor: theme.colorScheme.onPrimary
+            ),
             child: const Text("Lock & Collect"),
           ),
         ],
