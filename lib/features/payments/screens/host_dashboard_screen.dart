@@ -661,9 +661,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     if (shouldUnlock != true) return;
 
     try {
-      final tableRepo = ref.read(tableRepositoryProvider);
-      await tableRepo.unlockTable(widget.tableId);
-      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+      await ref.read(currentTableProvider.notifier).unlockTable();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

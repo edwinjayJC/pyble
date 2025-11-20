@@ -152,11 +152,47 @@ We may suspend or terminate your access to the Service at any time, without noti
 If you have any questions about these Terms or the Service, please contact us at support@pyble.com.
 ''';
 
-class TermsScreen extends ConsumerWidget {
+class TermsScreen extends ConsumerStatefulWidget {
   const TermsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TermsScreen> createState() => _TermsScreenState();
+}
+
+class _TermsScreenState extends ConsumerState<TermsScreen> {
+  bool _isAccepting = false;
+
+  Future<void> _acceptTerms() async {
+    setState(() => _isAccepting = true);
+
+    try {
+      await ref.read(userProfileProvider.notifier).acceptTerms();
+      if (mounted) {
+        context.go(RoutePaths.home);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to accept terms: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isAccepting = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final profile = ref.watch(userProfileProvider).valueOrNull;
+    final hasAcceptedTerms = profile?.hasAcceptedTerms ?? false;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Terms & Conditions')),
       body: SafeArea(
@@ -164,11 +200,44 @@ class TermsScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              const Expanded(
+              Expanded(
                 child: SingleChildScrollView(
-                  child: Text(_termsContent),
+                  child: Text(
+                    _termsContent,
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ),
               ),
+              if (!hasAcceptedTerms) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _isAccepting ? null : _acceptTerms,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: colorScheme.primary,
+                      foregroundColor: colorScheme.onPrimary,
+                    ),
+                    child: _isAccepting
+                        ? SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: colorScheme.onPrimary,
+                            ),
+                          )
+                        : const Text(
+                            'I Accept',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

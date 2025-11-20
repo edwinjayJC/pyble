@@ -111,6 +111,16 @@ Endpoints for creating, joining, and managing `SplitTable` sessions.
   * **Body:** The updated `SplitTable` document with `status: 'collecting'`.
 * **Error Response:** `403 Forbidden` (if not host), `409 Conflict` (if not all items are claimed).
 
+### `PUT /tables/:tableId/unlock`
+* **Action:** (Phase 3) (Host-only) Unlocks the table and changes status from `collecting` back to `claiming`. This allows participants to resume claiming items.
+* **Success Response:** `200 OK`
+  * **Body:** The updated `SplitTable` document with `status: 'claiming'`.
+* **Error Response:**
+  * `400 Bad Request` (if tableId not provided)
+  * `403 Forbidden` (if not host)
+  * `404 Not Found` (if table doesn't exist)
+  * `409 Conflict` (if table is not in collecting status)
+
 ### `PUT /tables/:tableId/settle`
 * **Action:** (Phase 4) (Host-only) Settles/closes the table and changes status to `settled`.
 * **Pre-condition:** All participants must have paid.
