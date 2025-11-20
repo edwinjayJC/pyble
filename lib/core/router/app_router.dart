@@ -152,11 +152,58 @@ We may suspend or terminate your access to the Service at any time, without noti
 If you have any questions about these Terms or the Service, please contact us at support@pyble.com.
 ''';
 
-class TermsScreen extends ConsumerWidget {
-  const TermsScreen({super.key});
+class TermsScreen extends ConsumerStatefulWidget {
+  final bool requireAcceptance;
+
+  const TermsScreen({
+    super.key,
+    this.requireAcceptance = false,
+  });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TermsScreen> createState() => _TermsScreenState();
+}
+
+class _TermsScreenState extends ConsumerState<TermsScreen> {
+  bool _isAccepting = false;
+
+  Future<void> _handleAccept() async {
+    if (_isAccepting) return;
+    setState(() {
+      _isAccepting = true;
+    });
+
+    try {
+      await ref.read(userProfileProvider.notifier).acceptTerms();
+      if (!mounted) return;
+      context.go(RoutePaths.home);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Something went wrong. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isAccepting = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final profileAsync = ref.watch(userProfileProvider);
+    final needsAcceptanceFromProfile = profileAsync.maybeWhen(
+      data: (profile) => profile != null && !profile.hasAcceptedTerms,
+      orElse: () => false,
+    );
+    final showAcceptButton =
+        widget.requireAcceptance || needsAcceptanceFromProfile;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Terms & Conditions')),
       body: SafeArea(
@@ -169,6 +216,26 @@ class TermsScreen extends ConsumerWidget {
                   child: Text(_termsContent),
                 ),
               ),
+              if (showAcceptButton) ...[
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: _isAccepting ? null : _handleAccept,
+                    child: _isAccepting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Accept & Continue'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -903,7 +970,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Check terms acceptance
       final profile = userProfile.valueOrNull;
       if (profile != null && !profile.hasAcceptedTerms && !isTermsRoute) {
-        return RoutePaths.terms;
+        return '${RoutePaths.terms}?requireAccept=true';
       }
 
       return null;
@@ -932,7 +999,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.terms,
         name: RouteNames.terms,
-        builder: (context, state) => const TermsScreen(),
+        builder: (context, state) {
+          final requireAccept =
+              state.uri.queryParameters['requireAccept'] == 'true';
+          return TermsScreen(requireAcceptance: requireAccept);
+        },
       ),
       GoRoute(
         path: RoutePaths.settings,

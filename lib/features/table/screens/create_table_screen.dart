@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 // Core Imports
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/providers/supabase_provider.dart';
@@ -167,138 +166,177 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
         ),
       ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              padding: AppSpacing.screenPadding,
-              child: ConstrainedBox(
-                // Ensure content fills screen for Spacer() to work
-                constraints: BoxConstraints(minHeight: constraints.maxHeight - AppSpacing.xl),
-                child: IntrinsicHeight(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: AppSpacing.md),
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    padding: AppSpacing.screenPadding,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      child: IntrinsicHeight(
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: AppSpacing.md),
 
-                        // 1. Icon Container
-                        Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.surface,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(Icons.calendar_today_rounded, // Changed to Calendar for "Planning" feel
-                                size: 48, color: theme.colorScheme.primary),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-
-                        // 2. Headline
-                        Text(
-                          'Plan New Event',
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Set up the table now.\nInvite friends before you even arrive.',
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
-                              height: 1.5
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-
-                        const SizedBox(height: 40),
-
-                        // The Resume Card
-                        if (_activeTable != null) _buildResumeCard(context),
-
-                        // 3. Input Fields
-                        if (_activeTable == null) ...[
-                          TextFormField(
-                            controller: _titleController,
-                            textCapitalization: TextCapitalization.sentences,
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            decoration: InputDecoration(
-                              labelText: 'Event Name',
-                              hintText: _suggestedTitle, // e.g. "Friday Dinner"
-                              floatingLabelBehavior: FloatingLabelBehavior.always,
-                              hintStyle: TextStyle(
-                                color: theme.colorScheme.onSurface.withOpacity(0.4),
-                                fontStyle: FontStyle.normal,
+                              // 1. Icon Container
+                              Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surface,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.calendar_today_rounded,
+                                    size: 48,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
                               ),
-                              prefixIcon: Icon(
-                                Icons.edit_outlined,
-                                color: theme.colorScheme.onSurface.withOpacity(0.7),
-                              ),
-                              filled: true,
-                              fillColor: theme.colorScheme.surface,
-                              border: const OutlineInputBorder(
-                                borderRadius: AppRadius.allMd,
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            "Leave empty to name it '$_suggestedTitle'",
-                            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5)),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                              const SizedBox(height: AppSpacing.xl),
 
-                        const Spacer(),
+                              // 2. Headline
+                              Text(
+                                'Plan New Event',
+                                style: theme.textTheme.headlineLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Set up the table now.\nInvite friends before you even arrive.',
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  height: 1.5,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
 
-                        // 4. Button
-                        SizedBox(
-                          height: 56,
-                          child: ElevatedButton(
-                            onPressed: _isLoading
-                                ? null
-                                : (_activeTable != null
-                                ? () => context.go('/table/${_activeTable!.id}/invite') // Resume -> Invite
-                                : _createTable),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: theme.colorScheme.primary,
-                              foregroundColor: theme.colorScheme.onPrimary,
-                              elevation: 4,
-                              shape: const RoundedRectangleBorder(
-                                  borderRadius: AppRadius.allMd),
-                            ),
-                            child: _isLoading
-                                ? SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                    color: theme.colorScheme.onPrimary,
-                                    strokeWidth: 2.5))
-                                : Text(
-                              _activeTable != null
-                                  ? 'Resume ${_activeTable!.code}'
-                                  : 'Create & Invite', // Clear CTA
-                              style: const TextStyle(
-                                  fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
+                              const SizedBox(height: 40),
+
+                              // The Resume Card
+                              if (_activeTable != null) _buildResumeCard(context),
+
+                              // 3. Input Fields
+                              if (_activeTable == null) ...[
+                                TextFormField(
+                                  controller: _titleController,
+                                  textCapitalization: TextCapitalization.sentences,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                  decoration: InputDecoration(
+                                    labelText: 'Event Name',
+                                    hintText: _suggestedTitle,
+                                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                                    hintStyle: TextStyle(
+                                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                      fontStyle: FontStyle.normal,
+                                    ),
+                                    prefixIcon: Icon(
+                                      Icons.edit_outlined,
+                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                    ),
+                                    filled: true,
+                                    fillColor: theme.colorScheme.surface,
+                                    border: const OutlineInputBorder(
+                                      borderRadius: AppRadius.allMd,
+                                      borderSide: BorderSide.none,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  "Leave empty to name it '$_suggestedTitle'",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+
+                              const SizedBox(height: AppSpacing.xl),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.lg),
-                      ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            _buildCreateFooter(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCreateFooter(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SizedBox(
+          height: 56,
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isLoading
+                ? null
+                : (_activeTable != null
+                    ? () => context.go('/table/${_activeTable!.id}/invite')
+                    : _createTable),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              elevation: 0,
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.allMd,
+              ),
+            ),
+            child: _isLoading
+                ? SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      color: theme.colorScheme.onPrimary,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    _activeTable != null
+                        ? 'Resume ${_activeTable!.code}'
+                        : 'Create & Invite',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              ),
-            );
-          },
+          ),
         ),
       ),
     );
