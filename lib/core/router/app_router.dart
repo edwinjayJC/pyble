@@ -190,6 +190,8 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const _DisplayNameSettingsCard(),
+          const SizedBox(height: 24),
           SettingsSection(
             title: 'Appearance',
             subtitle: 'Tune how Pyble looks and feels.',
@@ -655,6 +657,162 @@ class SettingsSection extends StatelessWidget {
               ],
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DisplayNameSettingsCard extends ConsumerWidget {
+  const _DisplayNameSettingsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(userProfileProvider);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerColor.withOpacity(0.4)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Display name',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Update how your name appears to guests and friends.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            profileAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (error, stackTrace) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.error_outline, color: colorScheme.error),
+                title: const Text('Unable to load profile'),
+                subtitle: Text(
+                  error.toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: TextButton(
+                  onPressed: () => ref.refresh(userProfileProvider),
+                  child: const Text('Retry'),
+                ),
+              ),
+              data: (profile) {
+                final currentName = profile?.displayName ?? 'Guest User';
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.badge_outlined),
+                  title: Text(
+                    currentName,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  subtitle: const Text('Tap edit to change your display name.'),
+                  trailing: TextButton(
+                    onPressed: () => _editName(context, ref, currentName),
+                    child: const Text('Edit'),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editName(
+    BuildContext context,
+    WidgetRef ref,
+    String currentName,
+  ) async {
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (_) => _DisplayNameDialog(initialName: currentName),
+    );
+
+    final trimmed = newName?.trim();
+    if (trimmed == null ||
+        trimmed.isEmpty ||
+        trimmed == currentName.trim()) {
+      return;
+    }
+
+    try {
+      await ref.read(userProfileProvider.notifier).updateDisplayName(trimmed);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Display name updated')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to update name: $error')),
+      );
+    }
+  }
+}
+
+class _DisplayNameDialog extends StatefulWidget {
+  const _DisplayNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_DisplayNameDialog> createState() => _DisplayNameDialogState();
+}
+
+class _DisplayNameDialogState extends State<_DisplayNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit display name'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(
+          labelText: 'Display name',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text('Save'),
         ),
       ],
     );
