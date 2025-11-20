@@ -25,6 +25,7 @@ import '../../features/payments/screens/host_dashboard_screen.dart';
 import '../../features/payments/screens/participant_payment_screen.dart';
 import '../../features/payments/screens/payment_webview_screen.dart';
 import '../../features/payments/screens/payment_processing_screen.dart';
+import '../../features/payments/screens/payment_method_placeholder.dart';
 import '../../features/payments/models/payment_record.dart';
 import '../../features/history/screens/history_screen.dart';
 import '../../features/home/screens/home_screen.dart';
@@ -165,22 +166,6 @@ class TermsScreen extends ConsumerWidget {
               const Expanded(
                 child: SingleChildScrollView(
                   child: Text(_termsContent),
-                ),
-              ),
-              const SizedBox(height: 16),
-              SafeArea(
-                top: false,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await ref.read(userProfileProvider.notifier).acceptTerms();
-                      if (context.mounted) {
-                        context.go(RoutePaths.home);
-                      }
-                    },
-                    child: const Text('Accept & Continue'),
-                  ),
                 ),
               ),
             ],
@@ -794,6 +779,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.settings,
         name: RouteNames.settings,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.paymentMethod,
+        name: RouteNames.paymentMethod,
+        builder: (context, state) => const PaymentMethodPlaceholderScreen(),
       ),
       GoRoute(
         path: RoutePaths.history,
