@@ -4,6 +4,7 @@ import '../../../core/theme/app_colors.dart';
 enum PaymentStatus {
   owing,
   pendingConfirmation,
+  pendingDirectConfirmation,
   paid;
 
   factory PaymentStatus.fromString(String value) {
@@ -13,9 +14,12 @@ enum PaymentStatus {
       case 'pending_confirmation':
       case 'awaiting_confirmation':
         return PaymentStatus.pendingConfirmation;
+      case 'pending_direct_confirmation':
+        return PaymentStatus.pendingDirectConfirmation;
       case 'paid':
       case 'paid_in_app':
       case 'paid_outside':
+      case 'paid_direct':
         return PaymentStatus.paid;
       default:
         return PaymentStatus.owing;
@@ -29,6 +33,8 @@ enum PaymentStatus {
         return AppColors.darkFig; // Neutral
       case PaymentStatus.pendingConfirmation:
         return AppColors.warmSpice; // Alert/Action Needed
+      case PaymentStatus.pendingDirectConfirmation:
+        return AppColors.warmSpice; // Alert/Action Needed (same as pending)
       case PaymentStatus.paid:
         return AppColors.lushGreen; // Success
     }
@@ -40,6 +46,8 @@ enum PaymentStatus {
         return 'Owing';
       case PaymentStatus.pendingConfirmation:
         return 'Awaiting Confirmation';
+      case PaymentStatus.pendingDirectConfirmation:
+        return 'Awaiting Direct Confirmation';
       case PaymentStatus.paid:
         return 'Paid';
     }
@@ -98,7 +106,9 @@ class Participant {
   }
 
   // Helper: Does this participant require Host attention?
-  bool get requiresAction => paymentStatus == PaymentStatus.pendingConfirmation;
+  bool get requiresAction =>
+      paymentStatus == PaymentStatus.pendingConfirmation ||
+      paymentStatus == PaymentStatus.pendingDirectConfirmation;
 
   Map<String, dynamic> toJson() {
     return {

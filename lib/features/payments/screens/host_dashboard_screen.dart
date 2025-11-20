@@ -189,7 +189,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     for (var p in participants) {
       if (p.paymentStatus == PaymentStatus.paid) {
         collected += p.totalOwed;
-      } else if (p.paymentStatus == PaymentStatus.pendingConfirmation) {
+      } else if (p.paymentStatus == PaymentStatus.pendingConfirmation ||
+                 p.paymentStatus == PaymentStatus.pendingDirectConfirmation) {
         pending += p.totalOwed;
       } else {
         outstanding += p.totalOwed;
@@ -370,6 +371,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     bool showActionButton = false;
     bool isManualForcePay = false;
 
+    bool isDirectPayment = false;
+
     switch (guest.paymentStatus) {
       case PaymentStatus.paid:
         statusColor = AppColors.lushGreen;
@@ -382,6 +385,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         statusIcon = Icons.pending;
         statusText = "Confirm?";
         showActionButton = true;
+        break;
+
+      case PaymentStatus.pendingDirectConfirmation:
+        statusColor = AppColors.warmSpice;
+        statusIcon = Icons.store;
+        statusText = "Direct Pay?";
+        showActionButton = true;
+        isDirectPayment = true;
         break;
 
       case PaymentStatus.owing:
@@ -400,7 +411,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         color: theme.colorScheme.surface,
         borderRadius: AppRadius.allMd,
         border: showActionButton && !isManualForcePay
-            ? Border.all(color: AppColors.warmSpice, width: 1.5)
+            ? Border.all(color: isDirectPayment ? AppColors.warmSpice : AppColors.warmSpice, width: 1.5)
             : null,
         boxShadow: [
           BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
@@ -446,9 +457,9 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             ? SizedBox(
           width: 100,
           child: ElevatedButton(
-            onPressed: _isProcessing ? null : () => _confirmPayment(guest, isManualForce: isManualForcePay),
+            onPressed: _isProcessing ? null : () => _confirmPayment(guest, isManualForce: isManualForcePay, isDirectPayment: isDirectPayment),
             style: ElevatedButton.styleFrom(
-              // Manual Pay = Neutral Button. Pending = Action Button.
+              // Manual Pay = Neutral Button. Pending/Direct = Action Button.
               backgroundColor: isManualForcePay ? theme.colorScheme.onSurface : AppColors.lushGreen,
               foregroundColor: isManualForcePay ? theme.colorScheme.surface : Colors.white,
               padding: EdgeInsets.zero,
@@ -509,7 +520,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
   // === ACTIONS ===
 
-  Future<void> _confirmPayment(Participant p, {bool isSelf = false, bool isManualForce = false}) async {
+  Future<void> _confirmPayment(Participant p, {bool isSelf = false, bool isManualForce = false, bool isDirectPayment = false}) async {
     HapticFeedback.mediumImpact();
     setState(() => _isProcessing = true);
 
@@ -529,10 +540,18 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       await _refreshData();
 
       if (mounted) {
-        final theme = Theme.of(context);
+        String message;
+        if (isSelf) {
+          message = "Your share accounted for.";
+        } else if (isDirectPayment) {
+          message = "Direct payment confirmed from ${p.displayName}";
+        } else {
+          message = "Payment confirmed from ${p.displayName}";
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isSelf ? "Your share accounted for." : "Payment confirmed from ${p.displayName}"),
+            content: Text(message),
             backgroundColor: AppColors.lushGreen,
             behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),

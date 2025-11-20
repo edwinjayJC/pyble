@@ -7,6 +7,7 @@ import '../repository/table_repository.dart';
 import '../models/table_session.dart';
 import '../models/participant.dart';
 import '../models/bill_item.dart' show BillItem, ClaimedBy;
+import '../models/split_request.dart';
 
 final tableRepositoryProvider = Provider<TableRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -195,7 +196,7 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     }
   }
 
-  Future<void> lockTable() async {
+  Future<void> lockTable({double tipAmount = 0.0}) async {
     final currentData = state.valueOrNull;
     if (currentData == null) return;
 
@@ -351,6 +352,57 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     await splitItemAcrossUsers(itemId, allUserIds);
   }
 
+  // Split Request methods (for host-initiated splits that require participant approval)
+
+  /// Host requests to split an item with specific participants
+  /// This creates pending requests that participants must approve
+  Future<List<SplitRequest>> requestSplit({
+    required String itemId,
+    required List<String> userIds,
+  }) async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return [];
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      final requests = await repository.requestSplit(
+        tableId: currentData.table.id,
+        itemId: itemId,
+        userIds: userIds,
+      );
+      return requests;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Participant responds to a split request
+  Future<void> respondToSplitRequest({
+    required String requestId,
+    required String action, // "approve" or "reject"
+  }) async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      await repository.respondToSplitRequest(
+        tableId: currentData.table.id,
+        requestId: requestId,
+        action: action,
+      );
+
+      // Refresh table data to reflect the change if approved
+      if (action == 'approve') {
+        await loadTable(currentData.table.id, showLoading: false);
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> settleTable() async {
     final currentData = state.valueOrNull;
     if (currentData == null) return;
@@ -424,6 +476,9 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     try {
       final tableData = await repository.getTableData(tableId);
       state = AsyncValue.data(tableData);
+
+      // Also refresh split requests to check for new notifications
+      ref.invalidate(pendingSplitRequestsProvider(tableId));
     } catch (e) {
       // Silently fail polling, keep current state
     }
@@ -483,4 +538,18 @@ final isHostOfActiveTableProvider = FutureProvider<bool>((ref) async {
 
   final activeTables = await ref.watch(activeTablesProvider.future);
   return activeTables.any((table) => table.hostUserId == currentUser.id);
+});
+
+// Provider to fetch pending split requests for the current user
+final pendingSplitRequestsProvider =
+    FutureProvider.family<List<SplitRequest>, String>((ref, tableId) async {
+  final repository = ref.watch(tableRepositoryProvider);
+  return await repository.getSplitRequests(tableId);
+});
+
+// Provider to get the count of pending split requests
+final pendingSplitRequestsCountProvider =
+    Provider.family<AsyncValue<int>, String>((ref, tableId) {
+  final requestsAsync = ref.watch(pendingSplitRequestsProvider(tableId));
+  return requestsAsync.whenData((requests) => requests.length);
 });

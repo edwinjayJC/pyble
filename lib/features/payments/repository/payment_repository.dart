@@ -41,6 +41,17 @@ class PaymentRepository {
     );
   }
 
+  /// Mark payment as paid directly to the restaurant
+  /// (participant paid restaurant for their share, host doesn't need reimbursement)
+  Future<void> markPaidDirect({
+    required String tableId,
+  }) async {
+    await apiClient.post(
+      '/tables/$tableId/mark-paid-direct',
+      parser: (_) {},
+    );
+  }
+
   /// Host confirms they received payment (for POA)
   Future<void> confirmPayment({
     required String tableId,

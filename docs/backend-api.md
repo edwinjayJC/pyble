@@ -229,11 +229,84 @@ Endpoints for scanning and editing the bill.
     ```json
     {
       "itemId": "uuid-of-item",
-      "action": "claim" 
+      "action": "claim"
     }
     ```
   *(or "unclaim")*
 * **Success Response:** `200 OK` (Client will update via SignalR).
+
+### `POST /tables/:tableId/items/:itemId/request-split`
+* **Action:** (Phase 2) (Host-only) Creates split requests for participants. Each targeted participant must approve before being added to the item.
+* **Body:**
+    ```json
+    {
+      "userIds": ["user-uuid-1", "user-uuid-2"]
+    }
+    ```
+* **Success Response:** `201 Created`
+  * **Body:**
+    ```json
+    {
+      "message": "Split requests created",
+      "requests": [
+        {
+          "id": "request-uuid",
+          "itemId": "item-uuid",
+          "targetUserId": "user-uuid",
+          "status": "pending"
+        }
+      ]
+    }
+    ```
+* **Error Response:**
+  * `403 Forbidden` (if not host)
+  * `404 Not Found` (if table or item doesn't exist)
+  * `409 Conflict` (if table is not in claiming status)
+
+### `GET /tables/:tableId/split-requests`
+* **Action:** (Phase 2) Gets all pending split requests for the current user on this table.
+* **Success Response:** `200 OK`
+  * **Body:**
+    ```json
+    [
+      {
+        "id": "request-uuid",
+        "itemId": "item-uuid",
+        "itemName": "Large Pizza",
+        "itemPrice": 120.00,
+        "requestedByUserId": "host-uuid",
+        "requestedByName": "John",
+        "targetUserId": "current-user-uuid",
+        "status": "pending",
+        "createdAt": "2024-01-01T12:00:00Z"
+      }
+    ]
+    ```
+
+### `PUT /tables/:tableId/split-requests/:requestId/respond`
+* **Action:** (Phase 2) (Participant) Approves or rejects a split request.
+* **Body:**
+    ```json
+    {
+      "action": "approve"
+    }
+    ```
+  *(or "reject")*
+* **Success Response:** `200 OK`
+  * **Body:**
+    ```json
+    {
+      "message": "Split request approved",
+      "request": {
+        "id": "request-uuid",
+        "status": "approved"
+      }
+    }
+    ```
+* **Error Response:**
+  * `403 Forbidden` (if user is not the target of the request)
+  * `404 Not Found` (if request doesn't exist)
+  * `409 Conflict` (if request is not pending, or table is not in claiming status)
 
 ---
 
@@ -256,8 +329,18 @@ Endpoints for handling the payment and verification flow.
 * **Action:** (Phase 4) (Participant) Marks their payment as "Paid outside app," setting their status to `awaiting_confirmation`.
 * **Success Response:** `200 OK` (Client will update via SignalR).
 
+### `POST /tables/:tableId/mark-paid-direct`
+* **Action:** (Phase 4) (Participant) Marks their payment as "Paid restaurant directly" - meaning they paid the restaurant for their share, not the host. This sets their status to `pending_direct_confirmation`.
+* **Use Case:** When a participant paid the restaurant directly (e.g., split the check at the register), so the host doesn't need to be reimbursed for this participant's share.
+* **Success Response:** `200 OK` (Client will update via SignalR).
+* **Error Response:**
+  * `400 Bad Request` (if tableId not provided)
+  * `403 Forbidden` (if user is not a participant)
+  * `404 Not Found` (if table doesn't exist)
+  * `409 Conflict` (if table is not in collecting status)
+
 ### `POST /tables/:tableId/confirm-payment`
-* **Action:** (Phase 4) (Host-only) Confirms an "outside" payment.
+* **Action:** (Phase 4) (Host-only) Confirms an "outside" or "direct" payment. Works for both `awaiting_confirmation` and `pending_direct_confirmation` statuses.
 * **Body:**
     ```json
     {
@@ -265,6 +348,7 @@ Endpoints for handling the payment and verification flow.
     }
     ```
 * **Success Response:** `200 OK` (Client will update via SignalR).
+* **Note:** For direct payments, confirming indicates the host acknowledges the participant paid the restaurant directly for their share.
 
 ### `POST /tables/:tableId/close`
 * **Action:** (Phase 4) (Host-only) Closes the table, setting its status to `settled`.

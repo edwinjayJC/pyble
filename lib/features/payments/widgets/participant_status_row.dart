@@ -99,8 +99,9 @@ class ParticipantStatusRow extends StatelessWidget {
               _buildStatusBadge(context, statusColor, statusText, statusIcon),
             ],
           ),
-          // Confirm Button (only for pending confirmation)
-          if (participant.paymentStatus == PaymentStatus.pendingConfirmation &&
+          // Confirm Button (for pending confirmation or pending direct confirmation)
+          if ((participant.paymentStatus == PaymentStatus.pendingConfirmation ||
+               participant.paymentStatus == PaymentStatus.pendingDirectConfirmation) &&
               onConfirmPayment != null) ...[
             const SizedBox(height: AppSpacing.sm),
             SizedBox(
@@ -130,6 +131,12 @@ class ParticipantStatusRow extends StatelessWidget {
           AppColors.warmSpice,
           'PENDING',
           Icons.pending,
+        );
+      case PaymentStatus.pendingDirectConfirmation:
+        return (
+          AppColors.warmSpice,
+          'DIRECT',
+          Icons.store,
         );
       case PaymentStatus.owing:
         return (AppColors.darkFig, 'OWING', Icons.attach_money);

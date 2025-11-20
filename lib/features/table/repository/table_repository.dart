@@ -4,6 +4,7 @@ import '../../../core/api/api_client.dart';
 import '../models/table_session.dart';
 import '../models/participant.dart';
 import '../models/bill_item.dart';
+import '../models/split_request.dart';
 
 class TableData {
   final TableSession table;
@@ -238,9 +239,12 @@ class TableRepository {
     );
   }
 
-  Future<TableSession> lockTable(String tableId) async {
+  Future<TableSession> lockTable(String tableId, {double tipAmount = 0.0}) async {
     return await apiClient.put(
       '/tables/$tableId/lock',
+      body: {
+        'tipAmount': tipAmount, // Send the tip to the backend
+      },
       parser: (data) => TableSession.fromJson(data as Map<String, dynamic>),
     );
   }
@@ -310,6 +314,61 @@ class TableRepository {
         parser: (_) {},
       );
     }
+  }
+
+  // Split Request methods (for host-initiated splits that require participant approval)
+
+  /// Host requests to split an item with participants
+  /// Returns the created split requests
+  Future<List<SplitRequest>> requestSplit({
+    required String tableId,
+    required String itemId,
+    required List<String> userIds,
+  }) async {
+    return await apiClient.post(
+      '/tables/$tableId/items/$itemId/request-split',
+      body: {
+        'userIds': userIds,
+      },
+      parser: (data) {
+        final requests = data['requests'] as List<dynamic>? ?? [];
+        return requests
+            .map((e) => SplitRequest.fromJson(e as Map<String, dynamic>))
+            .toList();
+      },
+    );
+  }
+
+  /// Get pending split requests for current user on this table
+  Future<List<SplitRequest>> getSplitRequests(String tableId) async {
+    return await apiClient.get(
+      '/tables/$tableId/split-requests',
+      parser: (data) {
+        if (data == null) return [];
+        final requests = data as List<dynamic>;
+        return requests
+            .map((e) => SplitRequest.fromJson(e as Map<String, dynamic>))
+            .toList();
+      },
+    );
+  }
+
+  /// Participant responds to a split request (approve or reject)
+  Future<SplitRequest> respondToSplitRequest({
+    required String tableId,
+    required String requestId,
+    required String action, // "approve" or "reject"
+  }) async {
+    return await apiClient.put(
+      '/tables/$tableId/split-requests/$requestId/respond',
+      body: {
+        'action': action,
+      },
+      parser: (data) {
+        final request = data['request'] as Map<String, dynamic>;
+        return SplitRequest.fromJson(request);
+      },
+    );
   }
 }
 

@@ -75,43 +75,45 @@ class _ParticipantPaymentScreenState
           },
         ),
       ),
-      body: tableAsync.when(
-        data: (tableData) {
-          if (tableData == null || currentUser == null) {
-            return const Center(child: Text('No data available'));
-          }
+      body: SafeArea(
+        child: tableAsync.when(
+          data: (tableData) {
+            if (tableData == null || currentUser == null) {
+              return const Center(child: Text('No data available'));
+            }
 
-          final me = tableData.participants.firstWhere(
-                (p) => p.userId == currentUser.id,
-            orElse: () => Participant(
-              id: 'unknown',
-              tableId: '',
-              userId: 'unknown',
-              displayName: '?',
-              paymentStatus: PaymentStatus.owing,
-            ),
-          );
-
-          final host = tableData.participants.firstWhere(
-                (p) => p.userId == tableData.table.hostUserId,
-            orElse: () => me,
-          );
-
-          return _buildScreenContent(context, me, host);
-        },
-        loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
-        error: (error, stack) => Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
-              const SizedBox(height: AppSpacing.md),
-              Text('Error: $error'),
-              TextButton(
-                onPressed: _refreshData,
-                child: const Text('Retry'),
+            final me = tableData.participants.firstWhere(
+                  (p) => p.userId == currentUser.id,
+              orElse: () => Participant(
+                id: 'unknown',
+                tableId: '',
+                userId: 'unknown',
+                displayName: '?',
+                paymentStatus: PaymentStatus.owing,
               ),
-            ],
+            );
+
+            final host = tableData.participants.firstWhere(
+                  (p) => p.userId == tableData.table.hostUserId,
+              orElse: () => me,
+            );
+
+            return _buildScreenContent(context, me, host);
+          },
+          loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+          error: (error, stack) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                const SizedBox(height: AppSpacing.md),
+                Text('Error: $error'),
+                TextButton(
+                  onPressed: _refreshData,
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -128,12 +130,17 @@ class _ParticipantPaymentScreenState
       return _buildSettledView(context, me);
     }
 
-    // 2. PENDING
+    // 2. PENDING (Paid Outside App)
     if (me.paymentStatus == PaymentStatus.pendingConfirmation) {
       return _buildPendingView(context, me, host);
     }
 
-    // 3. OWING
+    // 3. PENDING DIRECT (Paid Restaurant Directly)
+    if (me.paymentStatus == PaymentStatus.pendingDirectConfirmation) {
+      return _buildPendingDirectView(context, me, host);
+    }
+
+    // 4. OWING
     return _buildOwingView(context, me, host);
   }
 
@@ -207,6 +214,47 @@ class _ParticipantPaymentScreenState
             const SizedBox(height: AppSpacing.md),
             Text(
               'You marked this as paid manually.\nWaiting for ${host.displayName} to confirm.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(color: AppColors.warmSpice),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // === VIEW 2B: PENDING DIRECT (Paid Restaurant Directly) ===
+  Widget _buildPendingDirectView(BuildContext context, Participant me, Participant host) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Padding(
+        padding: AppSpacing.screenPadding,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: AppColors.lightWarmSpice,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.store, size: 48, color: AppColors.warmSpice),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Text(
+              'Waiting for Host',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                color: AppColors.warmSpice,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'You marked this as paid directly to the restaurant.\nWaiting for ${host.displayName} to confirm.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
@@ -314,6 +362,11 @@ class _ParticipantPaymentScreenState
 
           // 3. OPTION B: PAY OUTSIDE (The "Manual Path")
           _buildManualPaymentOption(context, host, me),
+
+          const SizedBox(height: 16),
+
+          // 4. OPTION C: PAID DIRECTLY TO RESTAURANT
+          _buildDirectPaymentOption(context, host, me),
 
           const SizedBox(height: AppSpacing.xl),
         ],
@@ -444,6 +497,48 @@ class _ParticipantPaymentScreenState
     );
   }
 
+  Widget _buildDirectPaymentOption(BuildContext context, Participant host, Participant me) {
+    final theme = Theme.of(context);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: AppRadius.allMd,
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: InkWell(
+        onTap: _isProcessing ? null : () => _markPaidDirect(me, host),
+        borderRadius: AppRadius.allMd,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.store_outlined, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        "Paid Restaurant Directly",
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                        "I paid my share at the register. No reimbursement needed.",
+                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.disabledColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMathRow(BuildContext context, String label, double value) {
     final theme = Theme.of(context);
     return Padding(
@@ -527,6 +622,73 @@ class _ParticipantPaymentScreenState
       setState(() => _isProcessing = true);
       try {
         await ref.read(paymentRepositoryProvider).markPaidOutside(tableId: widget.tableId);
+        // Force refresh to see the pending state
+        await _refreshData();
+      } catch (e) {
+        if (mounted) _showError(e.toString());
+      } finally {
+        if (mounted) setState(() => _isProcessing = false);
+      }
+    }
+  }
+
+  Future<void> _markPaidDirect(Participant me, Participant host) async {
+    // Bottom Sheet confirmation
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Confirm Direct Payment", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Text(
+                "Did you pay ${AppConstants.currencySymbol}${me.totalOwed.toStringAsFixed(2)} directly to the restaurant?",
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "This means ${host.displayName} doesn't need to reimburse you.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text("Cancel"),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.darkFig),
+                      child: const Text("Yes, I Paid"),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isProcessing = true);
+      try {
+        await ref.read(paymentRepositoryProvider).markPaidDirect(tableId: widget.tableId);
         // Force refresh to see the pending state
         await _refreshData();
       } catch (e) {

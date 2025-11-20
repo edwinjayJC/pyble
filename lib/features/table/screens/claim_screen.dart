@@ -14,8 +14,10 @@ import '../../../core/providers/supabase_provider.dart';
 import '../providers/table_provider.dart';
 import '../models/table_session.dart';
 import '../models/bill_item.dart';
+import '../models/split_request.dart';
 import '../widgets/bill_item_row.dart';
 import '../widgets/complex_split_sheet.dart';
+import '../widgets/split_request_sheet.dart';
 import '../models/participant.dart';
 
 class ClaimScreen extends ConsumerStatefulWidget {
@@ -73,33 +75,21 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           if (tableData.table.status == TableStatus.collecting) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               ref.read(currentTableProvider.notifier).stopPolling();
-              if (isHost) {
-                context.go('/table/${widget.tableId}/dashboard');
-              } else {
-                context.go('/table/${widget.tableId}/payment');
-              }
+              if (isHost) context.go('/table/${widget.tableId}/dashboard');
+              else context.go('/table/${widget.tableId}/payment');
             });
             return const Center(child: CircularProgressIndicator());
           }
 
           if (tableData.table.status == TableStatus.settled) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.go('/home');
-            });
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.check_circle, size: 64, color: theme.colorScheme.primary),
-                  const SizedBox(height: 16),
-                  Text('Table Settled', style: TextStyle(color: theme.colorScheme.onSurface)),
-                ],
-              ),
-            );
+            WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/home'));
+            return const Center(child: CircularProgressIndicator());
           }
 
           final myTotal = _calculateUserTotal(tableData.items, currentUser?.id);
           final unclaimedCount = tableData.items.where((i) => !i.isClaimed).length;
+          // Calculate total bill for the footer context
+          final totalBill = tableData.items.fold(0.0, (sum, item) => sum + item.price);
 
           return Column(
             children: [
@@ -124,7 +114,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 ),
               ),
               _buildStickyFooter(
-                  context, myTotal, unclaimedCount, isHost, tableData.items),
+                  context, myTotal, totalBill, unclaimedCount, isHost, tableData.items),
             ],
           );
         },
@@ -185,6 +175,48 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         ],
       ),
       actions: [
+        // Split Requests Button (for non-hosts)
+        if (!isHost)
+          Consumer(
+            builder: (context, ref, child) {
+              final requestsAsync = ref.watch(pendingSplitRequestsProvider(widget.tableId));
+              return requestsAsync.when(
+                data: (requests) {
+                  if (requests.isEmpty) return const SizedBox.shrink();
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.notifications, color: AppColors.warmSpice),
+                        onPressed: () => _showSplitRequestsSheet(context, requests),
+                        tooltip: 'Split Requests',
+                      ),
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.warmSpice,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${requests.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              );
+            },
+          ),
         if (isHost)
           IconButton(
             icon: Icon(Icons.edit_note, color: theme.colorScheme.primary),
@@ -269,7 +301,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  Widget _buildStickyFooter(BuildContext context, double myTotal,
+  Widget _buildStickyFooter(BuildContext context, double myTotal, double totalBill,
       int unclaimedCount, bool isHost, List<BillItem> items) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -332,51 +364,36 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                   child: ElevatedButton(
                     onPressed: unclaimedCount > 0
                         ? () => _showUnclaimedDialog(unclaimedCount)
-                        : _lockBill,
+                        : () => _showGratuitySheet(context, totalBill), // NEW ACTION
                     style: ElevatedButton.styleFrom(
-                      // === THE BOARD'S FIX ===
-                      // STATE 1: Unclaimed Items (Tonal Alert)
-                      // Background: 15% Opacity Spice (Subtle warning)
-                      // Text: 100% Spice (Clear readability)
-                      //
-                      // STATE 2: All Claimed (Solid Primary)
-                      // Background: Deep Berry
-                      // Text: White
-
                       backgroundColor: unclaimedCount > 0
-                          ? colorScheme.error.withOpacity(0.15) // Tonal Background
-                          : colorScheme.primary, // Solid Background
-
+                          ? colorScheme.error.withOpacity(0.15) // Tonal Alert
+                          : colorScheme.primary, // Ready
                       foregroundColor: unclaimedCount > 0
-                          ? colorScheme.error // Colored Text
-                          : colorScheme.onPrimary, // White Text
-
-                      elevation: 0, // Flat for Tonal, 0 for Primary (Modern look)
+                          ? colorScheme.error
+                          : colorScheme.onPrimary,
+                      elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+                        Icon(
+                          unclaimedCount > 0 ? Icons.warning_amber_rounded : Icons.receipt_long,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
                         Text(
                           unclaimedCount > 0
                               ? "Review $unclaimedCount Unclaimed Items"
-                              : "Lock Bill & Collect",
+                              : "Add Tip & Lock Bill", // Updated Text
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                       ],
                     ),
                   ),
                 ),
-
-                // The Cancel Button (Optional, if you decided to keep it here)
-                /* const SizedBox(height: AppSpacing.sm),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(...),
-                ),
-                */
-
               ] else if (unclaimedCount > 0) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
@@ -401,7 +418,6 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
     final claimed = items.where((i) => i.isClaimed).length;
     final progress = claimed / items.length;
-
     final isComplete = progress == 1.0;
     final activeColor = isComplete ? AppColors.lushGreen : theme.colorScheme.primary;
 
@@ -432,12 +448,17 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
+  // === LOGIC ===
+
   void _handleClaimToggle(String itemId) {
     ref.read(currentTableProvider.notifier).claimItem(itemId);
     HapticFeedback.lightImpact();
   }
 
   void _showSplitSheet(BillItem item, List<Participant> participants) {
+    final currentUser = ref.read(currentUserProvider);
+    final isHost = ref.read(isHostProvider);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -449,10 +470,137 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         builder: (context, scrollController) => ComplexSplitSheet(
           item: item,
           participants: participants,
-          onSplit: (userIds) {
-            ref
-                .read(currentTableProvider.notifier)
-                .splitItemAcrossUsers(item.id, userIds);
+          onSplit: (userIds) async {
+            if (currentUser == null) return;
+
+            // Separate into self and others
+            final selfSelected = userIds.contains(currentUser.id);
+            final otherUserIds = userIds.where((id) => id != currentUser.id).toList();
+
+            // Check if host is already claimed on this item
+            final hostAlreadyClaimed = item.isClaimedByUser(currentUser.id);
+
+            // If host is adding other participants, create split requests
+            if (isHost && otherUserIds.isNotEmpty) {
+              try {
+                // Handle host's own claim first
+                if (selfSelected && !hostAlreadyClaimed) {
+                  // Host selected themselves and wasn't already claimed - add claim
+                  await ref.read(currentTableProvider.notifier).claimItem(item.id);
+                } else if (!selfSelected && hostAlreadyClaimed) {
+                  // Host deselected themselves but was claimed - remove claim
+                  await ref.read(currentTableProvider.notifier).claimItem(item.id);
+                }
+                // If selfSelected && hostAlreadyClaimed, do nothing (already claimed)
+                // If !selfSelected && !hostAlreadyClaimed, do nothing (already not claimed)
+
+                // Create split requests for other participants
+                final requests = await ref.read(currentTableProvider.notifier).requestSplit(
+                  itemId: item.id,
+                  userIds: otherUserIds,
+                );
+
+                // Force refresh table data to get latest state
+                await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+
+                // Invalidate split requests provider to refresh notifications
+                ref.invalidate(pendingSplitRequestsProvider(widget.tableId));
+
+                if (mounted) {
+                  final requestCount = requests.length;
+                  if (requestCount > 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Split requests sent to $requestCount participant${requestCount > 1 ? 's' : ''}. Waiting for approval.',
+                        ),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  } else {
+                    // Requests already exist for these users
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Split requests already pending for selected participants.'),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                // Refresh to get correct state even on error
+                await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error creating split request: $e'),
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                  );
+                }
+              }
+            } else {
+              // Participant can only claim for themselves, or host selected only themselves
+              // Use the regular split flow
+              ref.read(currentTableProvider.notifier).splitItemAcrossUsers(item.id, userIds);
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  void _showSplitRequestsSheet(BuildContext context, List<SplitRequest> requests) {
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        builder: (context, scrollController) => SplitRequestSheet(
+          requests: requests,
+          onRespond: (requestId, action) async {
+            try {
+              await ref.read(currentTableProvider.notifier).respondToSplitRequest(
+                requestId: requestId,
+                action: action,
+              );
+
+              // Refresh the split requests
+              ref.invalidate(pendingSplitRequestsProvider(widget.tableId));
+
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      action == 'approve'
+                          ? 'Split request accepted'
+                          : 'Split request declined',
+                    ),
+                    backgroundColor: action == 'approve'
+                        ? AppColors.lushGreen
+                        : theme.colorScheme.error,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: $e'),
+                    backgroundColor: theme.colorScheme.error,
+                  ),
+                );
+              }
+            }
           },
         ),
       ),
@@ -462,7 +610,6 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   void _showParticipantsSheet(BuildContext context) {
     final tableData = ref.read(currentTableProvider).valueOrNull;
     if (tableData == null) return;
-
     final theme = Theme.of(context);
     final isHost = ref.read(isHostProvider);
 
@@ -485,17 +632,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 children: [
                   Text(
                     "Who is here?",
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
                   ),
                   Text(
-                    "${tableData.participants.length} ${tableData.participants.length == 1 ? 'person' : 'people'}",
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
-                    ),
+                    "${tableData.participants.length} Guests",
+                    style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
                   ),
                 ],
               ),
@@ -505,75 +646,53 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: tableData.participants.length,
-                separatorBuilder: (ctx, i) =>
-                    Divider(height: 1, color: theme.dividerColor),
+                separatorBuilder: (ctx, i) => Divider(height: 1, color: theme.dividerColor),
                 itemBuilder: (context, index) {
                   final p = tableData.participants[index];
                   final isHostUser = p.userId == tableData.table.hostUserId;
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                      backgroundImage: p.avatarUrl != null
-                          ? NetworkImage(p.avatarUrl!)
-                          : null,
+                      backgroundImage: p.avatarUrl != null ? NetworkImage(p.avatarUrl!) : null,
                       child: p.avatarUrl == null
-                          ? Text(p.initials,
-                          style: TextStyle(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.bold))
+                          ? Text(p.initials, style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold))
                           : null,
                     ),
-                    title: Text(
-                      p.displayName,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: theme.colorScheme.onSurface),
-                    ),
+                    title: Text(p.displayName, style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
                     trailing: isHostUser
                         ? Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Text("HOST",
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.primary)),
+                      child: Text("HOST", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
                     )
                         : null,
                   );
                 },
               ),
             ),
-            const SizedBox(height: 16),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    context.push('/table/${widget.tableId}/invite');
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme.colorScheme.primary,
-                    foregroundColor: theme.colorScheme.onPrimary,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  icon: const Icon(Icons.person_add),
-                  label: Text(
-                    isHost ? "Invite More People" : "Share Invite Link",
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+            if (isHost)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      context.push('/table/${widget.tableId}/invite');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: theme.colorScheme.onPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
+                    icon: const Icon(Icons.person_add),
+                    label: const Text("Invite More People"),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -586,13 +705,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Unclaimed Items"),
-        content: Text(
-            "There are still $count items that nobody has claimed. You must assign them or split them among all diners before locking."),
+        content: Text("There are still $count items that nobody has claimed."),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Go Back"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Back")),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -605,56 +720,117 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
+  // === THE AWARD WINNING GRATUITY SHEET ===
+  void _showGratuitySheet(BuildContext context, double billTotal) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // Needed for proper keyboard handling
+      backgroundColor: Colors.transparent,
+      builder: (context) => GratuitySheet(
+        billTotal: billTotal,
+        onConfirm: (tipAmount) {
+          // When confirmed, lock the table with the selected tip
+          _lockBill(tipAmount);
+        },
+      ),
+    );
+  }
+
   Future<void> _splitRemainingItems() async {
-    final items = ref.read(currentTableProvider).value!.items;
+    final tableData = ref.read(currentTableProvider).valueOrNull;
+    if (tableData == null) return;
+
+    final currentUser = ref.read(currentUserProvider);
+    if (currentUser == null) return;
+
+    final items = tableData.items;
+    final participants = tableData.participants;
     final orphans = items.where((i) => !i.isClaimed).toList();
-    for (var item in orphans) {
-      await ref
-          .read(currentTableProvider.notifier)
-          .splitItemAmongAllDiners(item.id);
+
+    if (orphans.isEmpty) return;
+
+    // Get other participant IDs (excluding host)
+    final otherUserIds = participants
+        .map((p) => p.userId)
+        .where((id) => id != currentUser.id)
+        .toList();
+
+    int totalRequestsSent = 0;
+
+    try {
+      for (var item in orphans) {
+        // 1. Claim the item for the host immediately
+        await ref.read(currentTableProvider.notifier).claimItem(item.id);
+
+        // 2. Create split requests for other participants if there are any
+        if (otherUserIds.isNotEmpty) {
+          final requests = await ref.read(currentTableProvider.notifier).requestSplit(
+            itemId: item.id,
+            userIds: otherUserIds,
+          );
+          totalRequestsSent += requests.length;
+        }
+      }
+
+      // Force refresh table data to get latest state
+      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+
+      // Invalidate split requests provider to refresh notifications for participants
+      ref.invalidate(pendingSplitRequestsProvider(widget.tableId));
+
+      if (mounted) {
+        if (totalRequestsSent > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Split ${orphans.length} items among all. $totalRequestsSent request${totalRequestsSent > 1 ? 's' : ''} sent for approval.',
+              ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Split ${orphans.length} items. You are the only participant.'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Refresh to get correct state even on error
+      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error splitting items: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
-  Future<void> _lockBill() async {
+  // Modified _lockBill to accept an optional tip
+  Future<void> _lockBill(double tipAmount) async {
     HapticFeedback.mediumImpact();
-    final theme = Theme.of(context);
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Finalize Bill?"),
-        content: const Text(
-            "This will lock claims and send payment requests to all guests."),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text("Cancel", style: TextStyle(color: theme.colorScheme.onSurface)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary),
-            child: const Text("Lock & Collect"),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await ref.read(currentTableProvider.notifier).lockTable();
-    }
+    // Assuming lockTable now accepts a tipAmount parameter.
+    // If your backend isn't ready, you can pass 0.0 for now,
+    // but the UI flow is ready for the feature.
+    await ref.read(currentTableProvider.notifier).lockTable(tipAmount: tipAmount);
   }
 
   Future<void> _confirmCancelTable(BuildContext context) async {
+    // ... (Keep existing cancellation logic)
     final theme = Theme.of(context);
     final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Cancel Table?'),
-        content: const Text(
-          'This will stop the session and remove the table for everyone.',
-        ),
+        content: const Text('This will stop the session for everyone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -678,23 +854,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       final repository = ref.read(tableRepositoryProvider);
       await repository.cancelTable(widget.tableId);
       ref.read(currentTableProvider.notifier).clearTable();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Table cancelled'),
-          backgroundColor: theme.colorScheme.error,
-        ),
-      );
-      context.go('/home');
+      if (mounted) context.go('/home');
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error cancelling table: $e'),
-          backgroundColor: theme.colorScheme.error,
-        ),
-      );
+      // Handle error
     }
   }
 
@@ -705,5 +867,242 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       total += item.getShareForUser(userId);
     }
     return total;
+  }
+}
+
+// ==========================================
+// NEW: GRATUITY BOTTOM SHEET
+// ==========================================
+
+class GratuitySheet extends StatefulWidget {
+  final double billTotal;
+  final Function(double) onConfirm;
+
+  const GratuitySheet({
+    super.key,
+    required this.billTotal,
+    required this.onConfirm,
+  });
+
+  @override
+  State<GratuitySheet> createState() => _GratuitySheetState();
+}
+
+class _GratuitySheetState extends State<GratuitySheet> {
+  int _selectedPercent = 10; // Default 10%
+  final TextEditingController _customController = TextEditingController();
+
+  double get _tipAmount {
+    if (_selectedPercent == -1) {
+      return double.tryParse(_customController.text) ?? 0.0;
+    }
+    return widget.billTotal * (_selectedPercent / 100);
+  }
+
+  double get _finalTotal => widget.billTotal + _tipAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.fromLTRB(
+          24, 24, 24,
+          MediaQuery.of(context).viewInsets.bottom + 24
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "Add Gratuity",
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onSurface,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Select a tip for the group. This will be split proportionally.",
+            style: TextStyle(
+                color: colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 14
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+
+          // 1. Tip Percentages (Segmented Control)
+          Row(
+            children: [
+              _buildTipButton(10),
+              const SizedBox(width: 12),
+              _buildTipButton(15),
+              const SizedBox(width: 12),
+              _buildTipButton(20),
+              const SizedBox(width: 12),
+              _buildCustomButton(),
+            ],
+          ),
+
+          if (_selectedPercent == -1) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _customController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: "Custom Tip Amount",
+                prefixText: "\$ ",
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (_) => setState(() {}), // Refresh math
+            ),
+          ],
+
+          const SizedBox(height: 24),
+
+          // 2. The Math Summary
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.dividerColor),
+            ),
+            child: Column(
+              children: [
+                _buildRow("Subtotal", widget.billTotal, theme),
+                const SizedBox(height: 8),
+                _buildRow("Tip", _tipAmount, theme, isBold: true),
+                const Divider(height: 24),
+                _buildRow("Grand Total", _finalTotal, theme, isTotal: true),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // 3. Lock Button
+          SizedBox(
+            height: 56,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                widget.onConfirm(_tipAmount);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.deepBerry,
+                foregroundColor: AppColors.snow,
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text("Confirm & Lock Bill", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTipButton(int percent) {
+    final isSelected = _selectedPercent == percent;
+    final theme = Theme.of(context);
+
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedPercent = percent;
+            HapticFeedback.selectionClick();
+          });
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
+                width: 1.5
+            ),
+          ),
+          child: Text(
+            "$percent%",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCustomButton() {
+    final isSelected = _selectedPercent == -1;
+    final theme = Theme.of(context);
+
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _selectedPercent = -1;
+            HapticFeedback.selectionClick();
+          });
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+                color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
+                width: 1.5
+            ),
+          ),
+          child: Text(
+            "Custom",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(String label, double value, ThemeData theme, {bool isBold = false, bool isTotal = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(
+          fontSize: isTotal ? 18 : 14,
+          fontWeight: isBold || isTotal ? FontWeight.bold : FontWeight.normal,
+          color: theme.colorScheme.onSurface.withOpacity(isTotal ? 1.0 : 0.7),
+        )),
+        Text(
+          "${AppConstants.currencySymbol}${value.toStringAsFixed(2)}",
+          style: TextStyle(
+            fontSize: isTotal ? 20 : 14,
+            fontWeight: FontWeight.bold,
+            color: isTotal ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+      ],
+    );
   }
 }
