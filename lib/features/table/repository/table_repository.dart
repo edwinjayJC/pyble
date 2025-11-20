@@ -200,6 +200,13 @@ class TableRepository {
     );
   }
 
+  Future<TableSession> unlockTable(String tableId) async {
+    return await apiClient.put(
+      '/tables/$tableId/unlock',
+      parser: (data) => TableSession.fromJson(data as Map<String, dynamic>),
+    );
+  }
+
   Future<TableSession> settleTable(String tableId) async {
     return await apiClient.put(
       '/tables/$tableId/settle',

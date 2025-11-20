@@ -155,12 +155,12 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.close, color: theme.colorScheme.onSurface),
-          onPressed: () => context.go('/home'),
+          onPressed: () => context.go('/table/${widget.tableId}/claim'),
         ),
         actions: [
           if (hasItems)
             TextButton(
-              onPressed: () => context.go('/table/${widget.tableId}/invite'),
+              onPressed: () => context.go('/table/${widget.tableId}/claim'),
               child: const Text("Next",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             )
@@ -470,7 +470,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => context.go('/table/${widget.tableId}/invite'),
+                onPressed: () => context.go('/table/${widget.tableId}/claim'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: theme.colorScheme.onPrimary,
@@ -478,7 +478,7 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                   shape: const RoundedRectangleBorder(
                       borderRadius: AppRadius.allMd),
                 ),
-                child: const Text("Looks Good, Invite Friends",
+                child: const Text("Looks Good, Go to Claims",
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),

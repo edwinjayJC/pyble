@@ -338,7 +338,7 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
         width: double.infinity,
         child: ElevatedButton(
           onPressed: () {
-            // Navigate to claiming screen
+            // Move to bill items (claim screen) once everyone is ready
             context.go('/table/${widget.tableId}/claim');
           },
           style: ElevatedButton.styleFrom(
