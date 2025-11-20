@@ -197,6 +197,7 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(userProfileProvider);
+    final theme = Theme.of(context);
     final needsAcceptanceFromProfile = profileAsync.maybeWhen(
       data: (profile) => profile != null && !profile.hasAcceptedTerms,
       orElse: () => false,
