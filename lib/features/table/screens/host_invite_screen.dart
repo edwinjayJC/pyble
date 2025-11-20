@@ -349,7 +349,7 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
             shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
           ),
           child: const Text(
-            "Everyone is Here - Let's Order",
+            "Next - Scan Bill",
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
         ),

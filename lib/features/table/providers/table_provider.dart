@@ -126,6 +126,75 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     }
   }
 
+  Future<void> updateItem({
+    required String itemId,
+    required String description,
+    required double price,
+  }) async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      // Call the editItemOnTable API endpoint
+      await repository.updateItem(
+        tableId: currentData.table.id,
+        itemId: itemId,
+        description: description,
+        price: price,
+      );
+
+      // Reload the table data to ensure consistency with backend
+      // The backend recalculates subTotal, so we fetch the updated state
+      await loadTable(currentData.table.id, showLoading: false);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> deleteItem(String itemId) async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      // Call the deleteItemFromTable API endpoint
+      await repository.deleteItem(
+        tableId: currentData.table.id,
+        itemId: itemId,
+      );
+
+      // Reload the table data to ensure consistency with backend
+      // The backend recalculates subTotal, so we fetch the updated state
+      await loadTable(currentData.table.id, showLoading: false);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> clearAllItems() async {
+    final currentData = state.valueOrNull;
+    if (currentData == null) return;
+
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      // Call the clearTableItems API endpoint
+      await repository.clearAllItems(tableId: currentData.table.id);
+
+      // Reload the table data to ensure consistency with backend
+      // The backend resets items, subTotal, tax, and tip
+      await loadTable(currentData.table.id, showLoading: false);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
   Future<void> lockTable() async {
     final currentData = state.valueOrNull;
     if (currentData == null) return;
@@ -276,6 +345,42 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
         tip: currentData.tip,
       ));
       stopPolling(); // Stop polling once table is settled
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> cancelTable(String tableId) async {
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      await repository.cancelTable(tableId);
+      // Invalidate the active tables provider to refresh the list
+      ref.invalidate(activeTablesProvider);
+      // Clear current table if it's the one being cancelled
+      final currentData = state.valueOrNull;
+      if (currentData?.table.id == tableId) {
+        clearTable();
+      }
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> leaveTable(String tableId) async {
+    final repository = ref.read(tableRepositoryProvider);
+
+    try {
+      await repository.leaveTable(tableId);
+      // Invalidate the active tables provider to refresh the list
+      ref.invalidate(activeTablesProvider);
+      // Clear current table if it's the one being left
+      final currentData = state.valueOrNull;
+      if (currentData?.table.id == tableId) {
+        clearTable();
+      }
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       rethrow;

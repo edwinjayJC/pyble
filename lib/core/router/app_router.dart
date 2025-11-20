@@ -20,6 +20,7 @@ import '../../features/table/screens/create_table_screen.dart';
 import '../../features/table/screens/host_invite_screen.dart';
 import '../../features/table/screens/join_table_screen.dart';
 import '../../features/table/screens/claim_screen.dart';
+import '../../features/table/screens/edit_bill_screen.dart';
 import '../../features/ocr/screens/scan_bill_screen.dart';
 import '../../features/payments/screens/host_dashboard_screen.dart';
 import '../../features/payments/screens/participant_payment_screen.dart';
@@ -1001,6 +1002,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final tableId = state.pathParameters['tableId']!;
           return ClaimScreen(tableId: tableId);
+        },
+      ),
+      GoRoute(
+        path: '/table/:tableId/edit',
+        name: 'edit-bill',
+        builder: (context, state) {
+          final tableId = state.pathParameters['tableId']!;
+          return EditBillScreen(tableId: tableId);
         },
       ),
       GoRoute(

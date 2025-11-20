@@ -169,6 +169,51 @@ class TableRepository {
     );
   }
 
+  Future<BillItem> updateItem({
+    required String tableId,
+    required String itemId,
+    required String description,
+    required double price,
+  }) async {
+    return await apiClient.put(
+      '/tables/$tableId/items/$itemId',
+      body: {
+        'name': description,
+        'price': price,
+      },
+      parser: (data) {
+        // API returns { message: "...", table: {...} }
+        // Extract the updated item from the table
+        final tableData = data['table'] as Map<String, dynamic>;
+        final items = tableData['items'] as List<dynamic>;
+        final updatedItem = items.firstWhere(
+          (item) => item['itemId'] == itemId,
+          orElse: () => items.last, // Fallback to last item
+        );
+        return BillItem.fromJson(updatedItem as Map<String, dynamic>);
+      },
+    );
+  }
+
+  Future<void> deleteItem({
+    required String tableId,
+    required String itemId,
+  }) async {
+    await apiClient.delete(
+      '/tables/$tableId/items/$itemId',
+      parser: (_) {},
+    );
+  }
+
+  Future<void> clearAllItems({
+    required String tableId,
+  }) async {
+    await apiClient.delete(
+      '/tables/$tableId/items',
+      parser: (_) {},
+    );
+  }
+
   /// Scans a bill image and adds items to the table
   /// Returns the number of items detected
   /// Note: Items are saved to the table on the backend,
@@ -217,6 +262,13 @@ class TableRepository {
   Future<void> cancelTable(String tableId) async {
     await apiClient.put(
       '/tables/$tableId/cancel',
+      parser: (_) {},
+    );
+  }
+
+  Future<void> leaveTable(String tableId) async {
+    await apiClient.post(
+      '/tables/$tableId/leave',
       parser: (_) {},
     );
   }

@@ -103,7 +103,7 @@ class AuthScreen extends ConsumerWidget {
         Text(
           'pyble',
           style: theme.textTheme.displayLarge?.copyWith(
-            fontSize: 52,
+            fontSize: 58,
             fontWeight: FontWeight.normal,
             fontFamily: "Quip",
             // Color is automatically handled by displayLarge in AppTheme
