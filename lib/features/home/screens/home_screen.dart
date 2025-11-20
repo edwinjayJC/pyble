@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import '../../../core/widgets/app_drawer.dart';
 // Feature Imports
 import '../../table/providers/table_provider.dart';
 import '../../table/models/table_session.dart';
+import '../../table/repository/table_repository.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -20,12 +22,38 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  Timer? _pollingTimer;
+
   @override
   void initState() {
     super.initState();
+    // Initial fetch
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(activeTablesProvider);
+      _startPolling();
     });
+  }
+
+  @override
+  void dispose() {
+    _stopPolling();
+    super.dispose();
+  }
+
+  void _startPolling() {
+    // Poll every 5 seconds to keep the dashboard alive
+    _pollingTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) {
+        // Invalidate forces a refetch. Riverpod keeps the previous data
+        // visible while fetching, creating a "Silent Refresh".
+        ref.invalidate(activeTablesProvider);
+      }
+    });
+  }
+
+  void _stopPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
   }
 
   Future<void> _refreshData() async {
@@ -47,7 +75,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             t.status == TableStatus.collecting));
 
     return Scaffold(
-      // FIX: Use theme background (adapts to Light Crust / Dark Plum)
       backgroundColor: theme.scaffoldBackgroundColor,
       drawer: const AppDrawer(),
       body: RefreshIndicator(
@@ -121,10 +148,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 );
               },
+              // Use SliverFillRemaining for loading/error to center content nicely
               loading: () => SliverFillRemaining(
                 child: Center(
-                    child:
-                    CircularProgressIndicator(color: theme.colorScheme.primary)),
+                    child: CircularProgressIndicator(color: theme.colorScheme.primary)),
               ),
               error: (e, _) => SliverFillRemaining(
                 child: _buildErrorState(context, e),
@@ -184,7 +211,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildSliverAppBar(BuildContext context) {
     final theme = Theme.of(context);
-    // Keep brand gradient, but ensure text/icons are always light on top of it
     return SliverAppBar(
       expandedHeight: 120.0,
       floating: false,
@@ -199,7 +225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             fontFamily: 'Quip',
             fontWeight: FontWeight.normal,
             letterSpacing: 1.5,
-            color: AppColors.snow, // Always white on the Berry brand color
+            color: AppColors.snow,
             fontSize: 32,
             shadows: [
               Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
@@ -212,8 +238,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFB70043), // Brand Berry
-                Color(0xFFD9275D), // Brand Lighter
+                Color(0xFFB70043),
+                Color(0xFFD9275D),
               ],
             ),
           ),
@@ -249,7 +275,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final theme = Theme.of(context);
     return Row(
       children: [
-        // CARD 1: Host (Filled Brand Color)
         Expanded(
           child: _ActionCard(
             title: "Host Table",
@@ -262,13 +287,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        // CARD 2: Join (Surface Color with Border)
         Expanded(
           child: _ActionCard(
             title: "Join Table",
             subtitle: "Scan Code",
             icon: Icons.qr_code_scanner,
-            color: theme.colorScheme.onSurface, // Icon color
+            color: theme.colorScheme.onSurface,
             isOutlined: true,
             onTap: () => context.push('/table/join'),
           ),
@@ -277,6 +301,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 }
+
+// === Sub-Widgets ===
 
 class _ActionCard extends StatelessWidget {
   final String title;
@@ -302,7 +328,6 @@ class _ActionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Logic for Colors based on Theme + Outline status
     final cardBg = isOutlined
         ? theme.colorScheme.surface
         : theme.colorScheme.primary;
@@ -321,13 +346,12 @@ class _ActionCard extends StatelessWidget {
         color: cardBg,
         borderRadius: AppRadius.allLg,
         elevation: isOutlined ? 0 : 4,
-        // No shadow in dark mode, standard shadow in light
         shadowColor: isDark ? Colors.transparent : color.withOpacity(0.3),
         child: InkWell(
           onTap: isDisabled
               ? () {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text("You are already hosting a table."),
+              content: const Text("You are already hosting a table. Close it to start a new one."),
               backgroundColor: theme.colorScheme.error,
             ));
           }
@@ -400,7 +424,6 @@ class _TicketCard extends ConsumerWidget {
     final isHost = table.hostUserId == currentUserId;
     final isDark = theme.brightness == Brightness.dark;
 
-    // Both hosts and participants can swipe (cancel vs leave)
     return Dismissible(
       key: Key(table.id),
       direction: DismissDirection.endToStart,
@@ -409,6 +432,7 @@ class _TicketCard extends ConsumerWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
         decoration: BoxDecoration(
+          // Dynamic color based on action (Cancel vs Leave)
           color: isHost ? theme.colorScheme.error : AppColors.warmSpice,
           borderRadius: AppRadius.allMd,
         ),
@@ -416,16 +440,17 @@ class _TicketCard extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              isHost ? Icons.cancel : Icons.exit_to_app,
-              color: theme.colorScheme.onError,
+              isHost ? Icons.cancel_presentation : Icons.exit_to_app,
+              color: Colors.white,
               size: 32,
             ),
             const SizedBox(height: 4),
             Text(
               isHost ? 'Cancel' : 'Leave',
-              style: TextStyle(
-                color: theme.colorScheme.onError,
+              style: const TextStyle(
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
+                fontSize: 12,
               ),
             ),
           ],
@@ -443,10 +468,7 @@ class _TicketCard extends ConsumerWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text(
-                    'Keep Table',
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
+                  child: Text('Keep Table', style: TextStyle(color: theme.colorScheme.onSurface)),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -470,10 +492,7 @@ class _TicketCard extends ConsumerWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text(
-                    'Stay',
-                    style: TextStyle(color: theme.colorScheme.onSurface),
-                  ),
+                  child: Text('Stay', style: TextStyle(color: theme.colorScheme.onSurface)),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -491,7 +510,11 @@ class _TicketCard extends ConsumerWidget {
       onDismissed: (direction) async {
         try {
           if (isHost) {
-            await ref.read(currentTableProvider.notifier).cancelTable(table.id);
+            final repository = ref.read(tableRepositoryProvider);
+            await repository.cancelTable(table.id);
+            // Force refresh so UI updates correctly
+            ref.invalidate(activeTablesProvider);
+
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -502,6 +525,8 @@ class _TicketCard extends ConsumerWidget {
             }
           } else {
             await ref.read(currentTableProvider.notifier).leaveTable(table.id);
+            ref.invalidate(activeTablesProvider);
+
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -515,97 +540,92 @@ class _TicketCard extends ConsumerWidget {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(isHost ? 'Failed to cancel table: $e' : 'Failed to leave table: $e'),
+                content: Text('Operation failed: $e'),
                 backgroundColor: theme.colorScheme.error,
               ),
             );
-            // Refresh to restore the card
-            ref.invalidate(activeTablesProvider);
+            ref.invalidate(activeTablesProvider); // Reload on error to restore state
           }
         }
       },
-      child: _buildCard(context, theme, isDark, isHost),
-    );
-  }
-
-  Widget _buildCard(BuildContext context, ThemeData theme, bool isDark, bool isHost) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface, // Adapts to Snow vs Dark Surface
-        borderRadius: AppRadius.allMd,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () => context.go('/table/${table.id}/claim'),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface, // Adapts to Snow vs Dark Surface
           borderRadius: AppRadius.allMd,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // 1. Status Strip
-                Container(
-                  width: 4,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: table.status == TableStatus.collecting
-                        ? theme.colorScheme.error // Warm Spice
-                        : theme.colorScheme.primary, // Deep Berry
-                    borderRadius: BorderRadius.circular(2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.1 : 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => context.go('/table/${table.id}/claim'),
+            borderRadius: AppRadius.allMd,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  // 1. Status Strip
+                  Container(
+                    width: 4,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: table.status == TableStatus.collecting
+                          ? theme.colorScheme.error // Warm Spice
+                          : theme.colorScheme.primary, // Deep Berry
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
+                  const SizedBox(width: 16),
 
-                // 2. Icon
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: theme.dividerColor.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
+                  // 2. Icon
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.dividerColor.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(Icons.receipt_long, color: theme.colorScheme.onSurface),
                   ),
-                  child: Icon(Icons.receipt_long, color: theme.colorScheme.onSurface),
-                ),
-                const SizedBox(width: 16),
+                  const SizedBox(width: 16),
 
-                // 3. Details
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        table.title ?? "Table ${table.code}",
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          if (isHost) _buildTag(context, "HOST", theme.colorScheme.primary),
-                          if (table.status == TableStatus.collecting)
-                            _buildTag(context, "COLLECTING", theme.colorScheme.error),
-                          Text(
-                            " • ${table.code}",
-                            style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                fontWeight: FontWeight.bold),
+                  // 3. Details
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          table.title ?? "Table ${table.code}",
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (isHost) _buildTag(context, "HOST", theme.colorScheme.primary),
+                            if (table.status == TableStatus.collecting)
+                              _buildTag(context, "COLLECTING", theme.colorScheme.error),
+                            Text(
+                              " • ${table.code}",
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
 
-                Icon(Icons.chevron_right, color: theme.disabledColor),
-              ],
+                  Icon(Icons.chevron_right, color: theme.disabledColor),
+                ],
+              ),
             ),
           ),
         ),

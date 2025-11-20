@@ -211,9 +211,12 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              const Expanded(
+              Expanded(
                 child: SingleChildScrollView(
-                  child: Text(_termsContent),
+                  child: Text(
+                    _termsContent,
+                    style: theme.textTheme.bodyMedium,
+                  ),
                 ),
               ),
               if (showAcceptButton) ...[
