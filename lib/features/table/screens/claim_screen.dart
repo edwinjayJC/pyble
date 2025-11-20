@@ -60,7 +60,6 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     });
 
     return Scaffold(
-      // FIX: Adapt background color (Light Crust vs Dark Plum)
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: _buildAppBar(
         context,
@@ -99,10 +98,6 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             );
           }
 
-          if (tableData.table.status != TableStatus.claiming) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
           final myTotal = _calculateUserTotal(tableData.items, currentUser?.id);
           final unclaimedCount = tableData.items.where((i) => !i.isClaimed).length;
 
@@ -123,8 +118,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                       currentUserId: currentUser?.id,
                       isHost: isHost,
                       onClaimToggle: () => _handleClaimToggle(item.id),
-                      onSplit: () =>
-                          _showSplitSheet(item, tableData.participants),
+                      onSplit: () => _showSplitSheet(item, tableData.participants),
                     );
                   },
                 ),
@@ -144,10 +138,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   PreferredSizeWidget _buildAppBar(
       BuildContext context, String? tableCode, bool isHost) {
     final theme = Theme.of(context);
-    final isHost = ref.watch(isHostProvider);
 
     return AppBar(
-      // FIX: Adapt surface color (Snow vs Ink)
       backgroundColor: theme.colorScheme.surface,
       elevation: 0,
       centerTitle: false,
@@ -195,7 +187,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       actions: [
         if (isHost)
           IconButton(
-            icon: Icon(Icons.edit, color: theme.colorScheme.primary),
+            icon: Icon(Icons.edit_note, color: theme.colorScheme.primary),
             onPressed: () => context.push('/table/${widget.tableId}/edit'),
             tooltip: 'Edit Bill',
           ),
@@ -205,18 +197,48 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           tooltip: 'View Participants',
         ),
         if (isHost)
-          IconButton(
-            icon: Icon(Icons.qr_code_2_outlined,
-                color: theme.colorScheme.onSurface),
-            tooltip: 'Show Table QR',
-            onPressed: () => context.go('/table/${widget.tableId}/invite'),
-          ),
-        if (isHost)
-          IconButton(
-            icon: Icon(Icons.document_scanner_outlined,
-                color: theme.colorScheme.onSurface),
-            tooltip: 'Scan Bill',
-            onPressed: () => context.go('/table/${widget.tableId}/scan'),
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: theme.colorScheme.onSurface),
+            onSelected: (value) {
+              switch (value) {
+                case 'invite':
+                  context.go('/table/${widget.tableId}/invite');
+                  break;
+                case 'scan':
+                  context.go('/table/${widget.tableId}/scan');
+                  break;
+                case 'cancel':
+                  _confirmCancelTable(context);
+                  break;
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'invite',
+                child: ListTile(
+                  leading: Icon(Icons.qr_code),
+                  title: Text('Show QR Code'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'scan',
+                child: ListTile(
+                  leading: Icon(Icons.document_scanner),
+                  title: Text('Scan More Items'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem<String>(
+                value: 'cancel',
+                child: ListTile(
+                  leading: Icon(Icons.cancel, color: theme.colorScheme.error),
+                  title: Text('Cancel Table', style: TextStyle(color: theme.colorScheme.error)),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
       ],
     );
@@ -234,6 +256,14 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             isHost ? "Scan a receipt to start" : "Waiting for Host...",
             style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)),
           ),
+          if (isHost) ...[
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () => context.go('/table/${widget.tableId}/scan'),
+              icon: const Icon(Icons.camera_alt),
+              label: const Text("Scan Bill"),
+            )
+          ]
         ],
       ),
     );
@@ -247,7 +277,6 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        // FIX: Adapt Footer background
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
@@ -289,7 +318,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                       ),
                     ],
                   ),
-                  _buildProgressRing(context, items),
+                  InkWell(
+                    onTap: () => _showParticipantsSheet(context),
+                    borderRadius: BorderRadius.circular(20),
+                    child: _buildProgressRing(context, items),
+                  ),
                 ],
               ),
               if (isHost) ...[
@@ -301,39 +334,49 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                         ? () => _showUnclaimedDialog(unclaimedCount)
                         : _lockBill,
                     style: ElevatedButton.styleFrom(
+                      // === THE BOARD'S FIX ===
+                      // STATE 1: Unclaimed Items (Tonal Alert)
+                      // Background: 15% Opacity Spice (Subtle warning)
+                      // Text: 100% Spice (Clear readability)
+                      //
+                      // STATE 2: All Claimed (Solid Primary)
+                      // Background: Deep Berry
+                      // Text: White
+
                       backgroundColor: unclaimedCount > 0
-                          ? colorScheme.onSurface.withOpacity(0.12)
-                          : colorScheme.primary,
+                          ? colorScheme.error.withOpacity(0.15) // Tonal Background
+                          : colorScheme.primary, // Solid Background
+
                       foregroundColor: unclaimedCount > 0
-                          ? colorScheme.onSurface.withOpacity(0.6)
-                          : colorScheme.onPrimary,
-                      elevation: unclaimedCount > 0 ? 0 : 2,
+                          ? colorScheme.error // Colored Text
+                          : colorScheme.onPrimary, // White Text
+
+                      elevation: 0, // Flat for Tonal, 0 for Primary (Modern look)
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      unclaimedCount > 0
-                          ? "$unclaimedCount Unclaimed Items Remaining"
-                          : "Lock Bill & Collect",
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          unclaimedCount > 0
+                              ? "Review $unclaimedCount Unclaimed Items"
+                              : "Lock Bill & Collect",
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+
+                // The Cancel Button (Optional, if you decided to keep it here)
+                /* const SizedBox(height: AppSpacing.sm),
                 SizedBox(
                   width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => _confirmCancelTable(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor:
-                          colorScheme.onSurface.withOpacity(0.7),
-                      side: BorderSide(
-                        color: colorScheme.onSurface.withOpacity(0.2),
-                      ),
-                      padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.sm,
-                      ),
-                    ),
-                    child: const Text('Cancel Table'),
-                  ),
+                  child: OutlinedButton(...),
                 ),
+                */
+
               ] else if (unclaimedCount > 0) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
@@ -381,8 +424,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface
-              ),
+                  color: theme.colorScheme.onSurface),
             ),
           ),
         ],
@@ -470,7 +512,6 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                   final isHostUser = p.userId == tableData.table.hostUserId;
                   return ListTile(
                     leading: CircleAvatar(
-                      // FIX: Use themed background for avatars
                       backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
                       backgroundImage: p.avatarUrl != null
                           ? NetworkImage(p.avatarUrl!)
@@ -593,8 +634,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary
-            ),
+                foregroundColor: theme.colorScheme.onPrimary),
             child: const Text("Lock & Collect"),
           ),
         ],
@@ -618,10 +658,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(
-              'Keep Table',
-              style: TextStyle(color: theme.colorScheme.primary),
-            ),
+            child: Text('Keep Table', style: TextStyle(color: theme.colorScheme.primary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // For Haptics
 import 'package:supabase_auth_ui/supabase_auth_ui.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,7 @@ import '../../../core/providers/supabase_provider.dart';
 import '../providers/user_profile_provider.dart';
 
 // ==========================================
-// 1. THE MAIN SCREEN
+// 1. THE MAIN SCREEN (Social First)
 // ==========================================
 
 class AuthScreen extends ConsumerWidget {
@@ -25,7 +26,6 @@ class AuthScreen extends ConsumerWidget {
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      // Uses LightCrust in Light Mode, DarkPlum in Dark Mode (via AppTheme)
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: LayoutBuilder(
@@ -39,20 +39,23 @@ class AuthScreen extends ConsumerWidget {
                     children: [
                       const SizedBox(height: 60),
 
-                      // Brand Header
+                      // 1. Brand Header
                       _buildBrandHeader(context),
 
                       const SizedBox(height: 48),
 
-                      // Social Sign-in First
-                      _buildSocialButtons(context, ref, isDark, colorScheme),
-                      const SizedBox(height: 24),
+                      // 2. Social Sign-in (Hero Position)
+                      // Prioritized because it has the lowest friction
+                      _buildSocialButtons(context, ref),
 
-                      // Divider before email form
+                      const SizedBox(height: 32),
+
+                      // 3. Divider
                       _buildSocialAuthDivider(context),
+
                       const SizedBox(height: 24),
 
-                      // Email Form now follows
+                      // 4. Email Form Container
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
@@ -60,13 +63,14 @@ class AuthScreen extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
                             BoxShadow(
-                              color: theme.shadowColor.withOpacity(isDark ? 0.3 : 0.05),
+                              color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
                             ),
                           ],
+                          // Subtle border for Dark Mode definition so the card pops
                           border: isDark
-                              ? Border.all(color: AppColors.darkBorder, width: 1)
+                              ? Border.all(color: theme.dividerColor)
                               : null,
                         ),
                         child: const EmailAuthForm(),
@@ -95,7 +99,7 @@ class AuthScreen extends ConsumerWidget {
           child: Image.asset(
             'assets/images/pyblelogo.png',
             height: 100,
-            // Optional: If your logo is black text, invert it for dark mode
+            // Optional: Invert logo color if needed for Dark Mode, otherwise remove line
             // color: theme.brightness == Brightness.dark ? Colors.white : null,
           ),
         ),
@@ -105,15 +109,14 @@ class AuthScreen extends ConsumerWidget {
           style: theme.textTheme.displayLarge?.copyWith(
             fontSize: 58,
             fontWeight: FontWeight.normal,
-            fontFamily: "Quip",
-            // Color is automatically handled by displayLarge in AppTheme
+            fontFamily: "Quip", // Keeping Brand Identity
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Pay Your Piece',
           style: theme.textTheme.bodyLarge?.copyWith(
-            color: theme.colorScheme.primary, // DeepBerry vs BrightBerry
+            color: theme.colorScheme.primary,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
           ),
@@ -122,23 +125,25 @@ class AuthScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSocialButtons(
-    BuildContext context,
-    WidgetRef ref,
-    bool isDark,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildSocialButtons(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Wrap in Theme to force Supabase buttons to match our Design System
     return Theme(
       data: theme.copyWith(
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? AppColors.darkSurface : AppColors.snow,
+            backgroundColor: colorScheme.surface, // Match the Email Card background
             foregroundColor: colorScheme.onSurface,
-            elevation: 1,
+            elevation: isDark ? 0 : 2,
+            padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: theme.dividerColor),
+              side: BorderSide(
+                  color: isDark ? theme.dividerColor : Colors.transparent
+              ),
             ),
           ),
         ),
@@ -146,7 +151,7 @@ class AuthScreen extends ConsumerWidget {
       child: SupaSocialsAuth(
         socialProviders: const [
           OAuthProvider.google,
-          OAuthProvider.azure,
+          OAuthProvider.apple,
         ],
         colored: true,
         redirectUrl: 'pyble://login-callback',
@@ -165,7 +170,7 @@ class AuthScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'or sign in with email',
+            'or continue with email', // Neutral wording works for Sign In & Sign Up
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withOpacity(0.5),
             ),
@@ -217,7 +222,7 @@ class AuthScreen extends ConsumerWidget {
 }
 
 // ==========================================
-// 2. THE ANIMATED FORM
+// 2. THE ANIMATED EMAIL FORM
 // ==========================================
 
 class EmailAuthForm extends ConsumerStatefulWidget {
@@ -264,6 +269,7 @@ class _EmailAuthFormState extends ConsumerState<EmailAuthForm> {
   }
 
   void _toggleMode() {
+    HapticFeedback.selectionClick(); // Tactile feedback
     setState(() {
       _isSigningIn = !_isSigningIn;
     });
@@ -359,19 +365,22 @@ class _EmailAuthFormState extends ConsumerState<EmailAuthForm> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // We rely on AppTheme's InputDecorationTheme.
-    // DO NOT override fillColor here, or it will break Dark Mode.
+    // Used for slight tint on input fields to differentiate from card background
+    final inputFillColor = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surfaceContainerHighest
+        : AppColors.lightBerry;
 
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Card Header
+          // 1. Dynamic Header
           Text(
             _isSigningIn ? 'Welcome Back' : 'Create Account',
             style: theme.textTheme.headlineSmall?.copyWith(
               fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
             ),
             textAlign: TextAlign.center,
           ),
@@ -382,9 +391,15 @@ class _EmailAuthFormState extends ConsumerState<EmailAuthForm> {
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
             autofillHints: const [AutofillHints.email],
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.email_outlined),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.email_outlined),
               labelText: 'Email address',
+              filled: true,
+              fillColor: inputFillColor,
+              border: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+                borderSide: BorderSide.none,
+              ),
             ),
             validator: (value) =>
             (value == null || !EmailValidator.validate(value.trim()))
@@ -405,9 +420,15 @@ class _EmailAuthFormState extends ConsumerState<EmailAuthForm> {
                 TextFormField(
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.person_outline),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.person_outline),
                     labelText: 'Full name',
+                    filled: true,
+                    fillColor: inputFillColor,
+                    border: const OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                   validator: (value) =>
                   (value == null || value.trim().isEmpty)
@@ -427,6 +448,12 @@ class _EmailAuthFormState extends ConsumerState<EmailAuthForm> {
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.lock_outline),
               labelText: 'Password',
+              filled: true,
+              fillColor: inputFillColor,
+              border: const OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+                borderSide: BorderSide.none,
+              ),
               suffixIcon: IconButton(
                 icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -459,6 +486,12 @@ class _EmailAuthFormState extends ConsumerState<EmailAuthForm> {
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.lock_reset),
                     labelText: 'Confirm password',
+                    filled: true,
+                    fillColor: inputFillColor,
+                    border: const OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide.none,
+                    ),
                     suffixIcon: IconButton(
                       icon: Icon(_obscureConfirmPassword ? Icons.visibility_off : Icons.visibility),
                       onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
@@ -532,7 +565,7 @@ class _EmailAuthFormState extends ConsumerState<EmailAuthForm> {
 }
 
 // ==========================================
-// 3. HELPER CLASSES
+// 3. PASSWORD STRENGTH HELPER CLASSES
 // ==========================================
 
 class PasswordValidationResult {

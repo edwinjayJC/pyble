@@ -226,7 +226,6 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
           onPressed: () => context.go('/table/${widget.tableId}/claim'),
         ),
         actions: [
-          if (hasItems)
             TextButton(
               onPressed: () => context.go('/table/${widget.tableId}/claim'),
               child: const Text("Next",

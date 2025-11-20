@@ -35,45 +35,48 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Hero(
-                tag: 'app_logo',
-                child: Image.asset(
-                  'assets/images/pyblelogo.png',
-                  height: 140,
-                  color: AppColors.snow,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Hero(
+                  tag: 'app_logo',
+                  child: Image.asset(
+                    'assets/images/pyblelogo.png',
+                    height: 140,
+                    color: AppColors.snow,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Pyble',
-                style: theme.textTheme.displayMedium?.copyWith(
-                  color: AppColors.snow,
-                  letterSpacing: 1.2,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 24),
+                Text(
+                  'Pyble',
+                  style: theme.textTheme.displayLarge?.copyWith(
+                    fontSize: 70,
+                    color: AppColors.snow,
+                    fontWeight: FontWeight.normal,
+                    fontFamily: "Quip",
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Pay Your Piece',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: AppColors.snow.withOpacity(0.8),
-                  letterSpacing: 2,
+                const SizedBox(height: 8),
+                Text(
+                  'Pay Your Piece',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: AppColors.snow.withOpacity(0.8),
+                    letterSpacing: 1.2,
+                  ),
                 ),
-              ),
-              const Spacer(),
-              const SizedBox(
-                height: 36,
-                width: 36,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3,
-                  color: AppColors.snow,
+                const SizedBox(height: 24),
+                const SizedBox(
+                  height: 36,
+                  width: 36,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 3,
+                    color: AppColors.snow,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 32),
-            ],
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),
