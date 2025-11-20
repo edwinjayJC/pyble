@@ -44,11 +44,18 @@ class AuthScreen extends ConsumerWidget {
 
                       const SizedBox(height: 48),
 
-                      // The Form Card
+                      // Social Sign-in First
+                      _buildSocialButtons(context, ref, isDark, colorScheme),
+                      const SizedBox(height: 24),
+
+                      // Divider before email form
+                      _buildSocialAuthDivider(context),
+                      const SizedBox(height: 24),
+
+                      // Email Form now follows
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          // Adapts to Surface Color (Snow vs Ink)
                           color: colorScheme.surface,
                           borderRadius: BorderRadius.circular(24),
                           boxShadow: [
@@ -58,48 +65,11 @@ class AuthScreen extends ConsumerWidget {
                               offset: const Offset(0, 10),
                             ),
                           ],
-                          // In dark mode, add a subtle border to separate card from bg
                           border: isDark
                               ? Border.all(color: AppColors.darkBorder, width: 1)
                               : null,
                         ),
                         child: const EmailAuthForm(),
-                      ),
-
-                      const SizedBox(height: 32),
-
-                      // Social Auth Section
-                      _buildSocialAuthDivider(context),
-                      const SizedBox(height: 24),
-
-                      // Social Buttons
-                      Theme(
-                        data: theme.copyWith(
-                          elevatedButtonTheme: ElevatedButtonThemeData(
-                            style: ElevatedButton.styleFrom(
-                              // Button BG: Snow (Light) vs Ink (Dark)
-                              backgroundColor: isDark ? AppColors.darkSurface : AppColors.snow,
-                              foregroundColor: colorScheme.onSurface,
-                              elevation: 1,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(
-                                  color: theme.dividerColor, // Adapts to theme border
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        child: SupaSocialsAuth(
-                          socialProviders: const [
-                            OAuthProvider.google,
-                            OAuthProvider.apple,
-                          ],
-                          colored: true,
-                          redirectUrl: 'pyble://login-callback',
-                          onSuccess: (session) => _handleAuthSuccess(context, ref),
-                          onError: (error) => _handleAuthError(context, ref, error),
-                        ),
                       ),
 
                       const Spacer(),
@@ -152,6 +122,40 @@ class AuthScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildSocialButtons(
+    BuildContext context,
+    WidgetRef ref,
+    bool isDark,
+    ColorScheme colorScheme,
+  ) {
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isDark ? AppColors.darkSurface : AppColors.snow,
+            foregroundColor: colorScheme.onSurface,
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: theme.dividerColor),
+            ),
+          ),
+        ),
+      ),
+      child: SupaSocialsAuth(
+        socialProviders: const [
+          OAuthProvider.google,
+          OAuthProvider.azure,
+        ],
+        colored: true,
+        redirectUrl: 'pyble://login-callback',
+        onSuccess: (session) => _handleAuthSuccess(context, ref),
+        onError: (error) => _handleAuthError(context, ref, error),
+      ),
+    );
+  }
+
   Widget _buildSocialAuthDivider(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -161,7 +165,7 @@ class AuthScreen extends ConsumerWidget {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'or continue with',
+            'or sign in with email',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withOpacity(0.5),
             ),
