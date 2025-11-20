@@ -26,10 +26,131 @@ import '../../features/payments/screens/host_dashboard_screen.dart';
 import '../../features/payments/screens/participant_payment_screen.dart';
 import '../../features/payments/screens/payment_webview_screen.dart';
 import '../../features/payments/screens/payment_processing_screen.dart';
+import '../../features/payments/screens/payment_method_placeholder.dart';
 import '../../features/payments/models/payment_record.dart';
 import '../../features/history/screens/history_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/home/screens/splash_screen.dart';
 import '../widgets/app_drawer.dart';
+
+const String _termsContent = '''
+TERMS AND CONDITIONS
+
+Last Updated: 11/20/2025
+
+
+1. DEFINITIONS
+In these Terms and Conditions ("Terms"):
+- "Pyble", "we", "us", "our" means the owners, operators and licensors of the Pyble mobile application and related services.
+- "User", "you", "your" means any person who uses or accesses the Service.
+- "Host" means a User who creates a table session, pays the restaurant, and receives reimbursements from other Users (Participants).
+- "Participants" means all Users who join a table via QR-code or invite, claim items, and reimburse the Host.
+- "Payment Processor" means any third-party payment service provider used by Pyble for handling payments.
+- "OCR" means the optical character recognition and AI-powered bill scanning functionality provided by Pyble.
+- "Restaurant" means any merchant or venue issuing a bill that is scanned via the Service.
+
+
+2. DESCRIPTION OF THE SERVICE
+Pyble provides a platform that allows Users to:
+  • Join a table by scanning a QR code or being invited by a Host;
+  • Upload or scan a restaurant bill via OCR/AI;
+  • Review itemised bill details and claim or allocate items among Participants;
+  • Make payments (via the app or an integrated Payment Processor) to reimburse the Host; and
+  • Track the status of reimbursements and bill settlement.
+
+
+Pyble does not:
+  • Pay the restaurant directly;
+  • Guarantee that the Host will pay the restaurant or that reimbursements will be made;
+  • Act as a bank, escrow agent, fiduciary or guarantor of any payments;
+  • Guarantee the accuracy of OCR/AI itemisation;
+  • Mediate disputes between Users about payments, claims or reimbursements.
+
+
+3. ACCEPTANCE OF TERMS
+By installing, accessing or using the Service, you agree to be bound by these Terms. If you do not agree, you must immediately cease all use. You represent and warrant that you have the capacity to enter into these Terms and use the Service in compliance with these Terms.
+
+
+3A. AGE & ELIGIBILITY REQUIREMENTS
+(a) You must be at least eighteen (18) years of age to use the payment or reimbursement features of the Service in South Africa, in line with full contractual capacity under the Children's Act 38 of 2005 (age of majority = 18 years).
+(b) If you are under eighteen (18) years of age, you may only use the Service with the **express permission** of a parent or legal guardian who has:
+  - read and accepted these Terms;
+  - agrees to take full responsibility for your actions in using the Service;
+  - indemnifies Pyble for any liability arising from your use.
+(c) You represent and warrant to us that you satisfy the eligibility and age requirements set out above. You further acknowledge that we do not independently verify your age or capacity, and you accept all liability for any mis-representation of your age or capacity.
+
+
+4. NO WARRANTY - SERVICE PROVIDED "AS IS" AND "AS AVAILABLE"
+You expressly acknowledge and agree that the Service is provided on an "AS IS" and "AS AVAILABLE" basis, without any warranty or representation of any kind, whether express or implied. We disclaim all warranties including, but not limited to, implied warranties of merchantability, fitness for a particular purpose, non-infringement and accuracy. You accept that OCR/AI functionality may produce inaccurate results, that itemisation may be incorrect, and that you must verify all claimed items, totals, taxes, service charges and reimbursements yourself.
+
+
+5. USER RESPONSIBILITIES
+You agree that:
+(a) You are solely responsible for verifying the accuracy of the bill, scanned items, claimed items, reimbursements and the Host's payment to the restaurant;
+(b) You acknowledge that OCR/AI may mis-read or mis-allocate items and accept the risk of such inaccuracies;
+(c) You are responsible for your own payment arrangements, ensuring that you pay your share and reimburse the Host correctly and on time;
+(d) You will use the Service in compliance with all applicable laws and not engage in fraudulent, dishonest or abusive conduct (including claiming items you did not consume, sub-allocating incorrectly, avoiding payment, altering bills, or manipulating the itemisation process).
+
+
+6. HOST RESPONSIBILITIES
+If you act as a Host, you acknowledge and agree that:
+(a) You are solely responsible for paying the full restaurant bill regardless of whether Participants reimburse you;
+(b) You bear the risk that one or more Participants may fail to pay their share, under-pay, or delay payment;
+(c) Pyble makes no guarantee that you will be reimbursed by Participants or that the restaurant will accept your settlement;
+(d) Pyble accepts no liability if Participants do not pay their share, or if the restaurant disputes the payment or bill amount.
+
+
+7. USER-TO-USER DISPUTES
+All disputes, claims, disagreements or controversies between Users (including Hosts and Participants) relating to claimed items, reimbursements, payments, itemisation, tips, service charges or allocations must be resolved directly between those Users. Pyble is not a party to any such dispute and has no obligation to mediate, adjudicate or become involved. We are not liable for any outcome, loss or damage arising from such disputes.
+
+
+8. NO FINANCIAL, FIDUCIARY OR ESCROW RELATIONSHIP
+You expressly understand and agree that Pyble is not acting as a bank, trustee, escrow agent, financial intermediary or fiduciary with respect to Users. Pyble does not hold or safeguard your funds, does not guarantee any payment settlement, and is not responsible for any Users' financial obligations to each other or to any merchant.
+
+
+9. PAYMENT PROCESSING DISCLAIMERS
+(a) Payments made via the Service are processed by one or more third-party Payment Processors. You agree to the terms, conditions and privacy policies of those providers.
+(b) Pyble has no control over, and accepts no liability for: declined transactions, payment processing delays, chargebacks, fraud detection, reversal of payments, cancelled transactions or other payment-related issues.
+(c) All financial obligations stemming from a transaction remain between you and the Payment Processor, you and the Host (if you are a Participant), and you and the restaurant (if you are a Host). Pyble is not liable for any failure by any party to meet its obligations.
+
+
+10. ACCURACY OF INFORMATION
+You acknowledge that Pyble does not guarantee the correctness of: OCR/AI-derived itemisations, totals, taxes, service charges, currency conversions, or Participant claims. It is your responsibility to manually verify all bill details, claimed items and reimbursement amounts before proceeding with payment.
+
+
+11. LIABILITY LIMITATION
+To the fullest extent permitted by applicable South African law, Pyble, its affiliates, officers, directors, employees, agents and licensors shall **not be liable** for any direct, indirect, incidental, special, punitive or consequential damages (including lost profits, lost data, lost savings, personal injury or property damage) arising out of or in any way related to your use of or inability to use the Service, including but not limited to:
+  • mis-scanned bills, incorrect item allocation or reimbursement failure;
+  • inaccuracies or errors in OCR/AI data extraction;
+  • any failure by Participants to pay, or delay in payment;
+  • payment processing issues;
+  • disputes between Users over claims, reimbursements or allocations;
+  • any conduct or omissions by Users, restaurants or Payment Processors.
+
+
+12. LIMITATION OF DAMAGES
+Your sole and exclusive remedy for dissatisfaction with the Service is to stop using the Service. To the maximum extent permitted by law, our total liability to you for any claim arising out of or relating to the Service is capped at the greater of (a) R500 or (b) the total amount of fees you have paid to Pyble in the preceding three (3) months (if any). Some jurisdictions may not allow such limitations; if so, the limitation shall apply to the fullest extent permissible.
+
+
+13. INDEMNIFICATION
+You agree to defend, indemnify and hold harmless Pyble, its affiliates, officers, directors, employees and agents from and against all claims, liabilities, damages, losses, costs and expenses (including reasonable attorneys' fees) arising out of or in connection with your use of the Service, your breach of these Terms, or any dispute between you and a restaurant, Host or Participant.
+
+
+14. DATA & PRIVACY
+Your use of the Service is subject to our Privacy Policy, which explains how we collect, use, disclose and safeguard your personal information. You consent to our collection and processing of your data in accordance with the Privacy Policy.
+
+
+15. MODIFICATIONS TO TERMS OR SERVICE
+Pyble reserves the right to modify these Terms or the Service at any time. We will notify you of material changes by updating the "Last Updated" date above or via in-app notification. Your continued use of the Service after any such modification constitutes acceptance of the updated Terms.
+
+
+16. TERMINATION
+We may suspend or terminate your access to the Service at any time, without notice, for any conduct that we determine in our sole discretion violates these Terms, is unlawful, or is otherwise harmful to Pyble, other Users or third parties.
+
+
+17. CONTACT US
+If you have any questions about these Terms or the Service, please contact us at support@pyble.com.
+''';
 
 class TermsScreen extends ConsumerWidget {
   const TermsScreen({super.key});
@@ -38,37 +159,18 @@ class TermsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('Terms & Conditions')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            const Expanded(
-              child: SingleChildScrollView(
-                child: Text(
-                  'Terms and Conditions\n\n'
-                  '1. By using Pyble, you agree to these terms.\n\n'
-                  '2. The app is provided as-is without warranty.\n\n'
-                  '3. You are responsible for your own payment arrangements.\n\n'
-                  '4. We do not store sensitive payment information.\n\n'
-                  '5. All disputes should be resolved between users.\n\n'
-                  '... (More terms would go here)',
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              const Expanded(
+                child: SingleChildScrollView(
+                  child: Text(_termsContent),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await ref.read(userProfileProvider.notifier).acceptTerms();
-                  if (context.mounted) {
-                    context.go(RoutePaths.home);
-                  }
-                },
-                child: const Text('Accept & Continue'),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -89,6 +191,8 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const _DisplayNameSettingsCard(),
+          const SizedBox(height: 24),
           SettingsSection(
             title: 'Appearance',
             subtitle: 'Tune how Pyble looks and feels.',
@@ -560,6 +664,162 @@ class SettingsSection extends StatelessWidget {
   }
 }
 
+class _DisplayNameSettingsCard extends ConsumerWidget {
+  const _DisplayNameSettingsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(userProfileProvider);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Card(
+      color: theme.colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: theme.dividerColor.withOpacity(0.4)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Display name',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Update how your name appears to guests and friends.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            profileAsync.when(
+              loading: () => const LinearProgressIndicator(),
+              error: (error, stackTrace) => ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.error_outline, color: colorScheme.error),
+                title: const Text('Unable to load profile'),
+                subtitle: Text(
+                  error.toString(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: TextButton(
+                  onPressed: () => ref.refresh(userProfileProvider),
+                  child: const Text('Retry'),
+                ),
+              ),
+              data: (profile) {
+                final currentName = profile?.displayName ?? 'Guest User';
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.badge_outlined),
+                  title: Text(
+                    currentName,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  subtitle: const Text('Tap edit to change your display name.'),
+                  trailing: TextButton(
+                    onPressed: () => _editName(context, ref, currentName),
+                    child: const Text('Edit'),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editName(
+    BuildContext context,
+    WidgetRef ref,
+    String currentName,
+  ) async {
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (_) => _DisplayNameDialog(initialName: currentName),
+    );
+
+    final trimmed = newName?.trim();
+    if (trimmed == null ||
+        trimmed.isEmpty ||
+        trimmed == currentName.trim()) {
+      return;
+    }
+
+    try {
+      await ref.read(userProfileProvider.notifier).updateDisplayName(trimmed);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Display name updated')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to update name: $error')),
+      );
+    }
+  }
+}
+
+class _DisplayNameDialog extends StatefulWidget {
+  const _DisplayNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_DisplayNameDialog> createState() => _DisplayNameDialogState();
+}
+
+class _DisplayNameDialogState extends State<_DisplayNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit display name'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(
+          labelText: 'Display name',
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.of(context).pop(_controller.text.trim()),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 class _DeletionBlocker {
   final IconData icon;
   final String title;
@@ -612,9 +872,10 @@ final routerProvider = Provider<GoRouter>((ref) {
   final userProfile = ref.watch(userProfileProvider);
 
   return GoRouter(
-    initialLocation: RoutePaths.home,
+    initialLocation: RoutePaths.splash,
     debugLogDiagnostics: true,
     redirect: (context, state) async {
+      final isSplashRoute = state.matchedLocation == RoutePaths.splash;
       final isAuthRoute = state.matchedLocation == RoutePaths.auth;
       final isOnboardingRoute = state.matchedLocation == RoutePaths.onboarding;
       final isVerifyRoute = state.matchedLocation == RoutePaths.verifyEmail;
@@ -624,12 +885,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       final prefs = await SharedPreferences.getInstance();
       final tutorialSeen = prefs.getBool(AppConstants.tutorialSeenKey) ?? false;
 
-      if (!tutorialSeen && !isOnboardingRoute && !isVerifyRoute) {
+      if (!tutorialSeen && !isOnboardingRoute && !isVerifyRoute && !isSplashRoute) {
         return RoutePaths.onboarding;
       }
 
       // Not authenticated
-      if (!isAuthenticated) {
+      if (!isAuthenticated && !isSplashRoute) {
         if (isAuthRoute || isOnboardingRoute || isVerifyRoute) return null;
         return RoutePaths.auth;
       }
@@ -648,6 +909,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: RoutePaths.splash,
+        name: RouteNames.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: RoutePaths.onboarding,
         name: RouteNames.onboarding,
@@ -672,6 +938,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.settings,
         name: RouteNames.settings,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.paymentMethod,
+        name: RouteNames.paymentMethod,
+        builder: (context, state) => const PaymentMethodPlaceholderScreen(),
       ),
       GoRoute(
         path: RoutePaths.history,
@@ -785,3 +1056,4 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+

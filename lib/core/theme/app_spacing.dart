@@ -13,4 +13,11 @@ class AppSpacing {
     horizontal: lg,
     vertical: md,
   );
+  static const BorderRadius defaultRadius = BorderRadius.all(Radius.circular(12));
 }
+
+
+
+
+
+

@@ -62,7 +62,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     return Scaffold(
       // FIX: Adapt background color (Light Crust vs Dark Plum)
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: _buildAppBar(context, tableDataAsync.valueOrNull?.table.code),
+      appBar: _buildAppBar(
+        context,
+        tableDataAsync.valueOrNull?.table.code,
+        isHost,
+      ),
       body: tableDataAsync.when(
         data: (tableData) {
           if (tableData == null) return const Center(child: Text('No Data'));
@@ -137,7 +141,8 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context, String? tableCode) {
+  PreferredSizeWidget _buildAppBar(
+      BuildContext context, String? tableCode, bool isHost) {
     final theme = Theme.of(context);
     final isHost = ref.watch(isHostProvider);
 
@@ -197,8 +202,22 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         IconButton(
           icon: Icon(Icons.people_outline, color: theme.colorScheme.onSurface),
           onPressed: () => _showParticipantsSheet(context),
-          tooltip: 'Participants',
+          tooltip: 'View Participants',
         ),
+        if (isHost)
+          IconButton(
+            icon: Icon(Icons.qr_code_2_outlined,
+                color: theme.colorScheme.onSurface),
+            tooltip: 'Show Table QR',
+            onPressed: () => context.go('/table/${widget.tableId}/invite'),
+          ),
+        if (isHost)
+          IconButton(
+            icon: Icon(Icons.document_scanner_outlined,
+                color: theme.colorScheme.onSurface),
+            tooltip: 'Scan Bill',
+            onPressed: () => context.go('/table/${widget.tableId}/scan'),
+          ),
       ],
     );
   }
@@ -282,16 +301,12 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                         ? () => _showUnclaimedDialog(unclaimedCount)
                         : _lockBill,
                     style: ElevatedButton.styleFrom(
-                      // FIX: Use onSurface with low opacity for the "Greyed Out" look
-                      // This works perfectly in both Light (Grey) and Dark (Dark Grey) modes.
                       backgroundColor: unclaimedCount > 0
                           ? colorScheme.onSurface.withOpacity(0.12)
                           : colorScheme.primary,
-
                       foregroundColor: unclaimedCount > 0
-                          ? colorScheme.onSurface.withOpacity(0.6) // Slightly darker text
+                          ? colorScheme.onSurface.withOpacity(0.6)
                           : colorScheme.onPrimary,
-
                       elevation: unclaimedCount > 0 ? 0 : 2,
                     ),
                     child: Text(
@@ -299,6 +314,24 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                           ? "$unclaimedCount Unclaimed Items Remaining"
                           : "Lock Bill & Collect",
                     ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => _confirmCancelTable(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor:
+                          colorScheme.onSurface.withOpacity(0.7),
+                      side: BorderSide(
+                        color: colorScheme.onSurface.withOpacity(0.2),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.sm,
+                      ),
+                    ),
+                    child: const Text('Cancel Table'),
                   ),
                 ),
               ] else if (unclaimedCount > 0) ...[
@@ -570,6 +603,61 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
     if (confirmed == true) {
       await ref.read(currentTableProvider.notifier).lockTable();
+    }
+  }
+
+  Future<void> _confirmCancelTable(BuildContext context) async {
+    final theme = Theme.of(context);
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel Table?'),
+        content: const Text(
+          'This will stop the session and remove the table for everyone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(
+              'Keep Table',
+              style: TextStyle(color: theme.colorScheme.primary),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: theme.colorScheme.onError,
+            ),
+            child: const Text('Cancel Table'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldCancel != true) return;
+
+    try {
+      final repository = ref.read(tableRepositoryProvider);
+      await repository.cancelTable(widget.tableId);
+      ref.read(currentTableProvider.notifier).clearTable();
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Table cancelled'),
+          backgroundColor: theme.colorScheme.error,
+        ),
+      );
+      context.go('/home');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error cancelling table: $e'),
+          backgroundColor: theme.colorScheme.error,
+        ),
+      );
     }
   }
 

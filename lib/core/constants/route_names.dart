@@ -1,4 +1,5 @@
 class RouteNames {
+  static const String splash = 'splash';
   static const String onboarding = 'onboarding';
   static const String auth = 'auth';
   static const String home = 'home';
@@ -15,11 +16,13 @@ class RouteNames {
   static const String participantPayment = 'participant-payment';
   static const String paymentWebview = 'payment-webview';
   static const String paymentProcessing = 'payment-processing';
+  static const String paymentMethod = 'payment-method';
   static const String history = 'history';
   static const String verifyEmail = 'verify-email';
 }
 
 class RoutePaths {
+  static const String splash = '/splash';
   static const String onboarding = '/onboarding';
   static const String auth = '/auth';
   static const String home = '/home';
@@ -36,6 +39,7 @@ class RoutePaths {
   static const String participantPayment = '/table/:tableId/payment';
   static const String paymentWebview = '/payment-webview/:tableId';
   static const String paymentProcessing = '/payment-processing/:tableId';
+  static const String paymentMethod = '/payment-method';
   static const String history = '/history';
   static const String verifyEmail = '/verify-email';
 }

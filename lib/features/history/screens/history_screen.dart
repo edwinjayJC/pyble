@@ -20,20 +20,24 @@ class HistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final historyTablesAsync = ref.watch(historyTablesProvider);
     final currentUser = ref.watch(currentUserProvider);
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: AppColors.lightCrust,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
-            'Past Sessions',
-            style: TextStyle(color: AppColors.darkFig, fontWeight: FontWeight.bold)
+        title: Text(
+          'Past Sessions',
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
         ),
-        backgroundColor: AppColors.lightCrust,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
-        // THE FIX: Explicit Back Button
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.darkFig),
+          icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
           onPressed: () => context.pop(),
         ),
       ),
@@ -66,9 +70,12 @@ class HistoryScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.cloud_off, size: 48, color: AppColors.darkFig.withOpacity(0.3)),
+              Icon(Icons.cloud_off, size: 48, color: colorScheme.onSurface.withOpacity(0.3)),
               const SizedBox(height: 16),
-              Text('Could not load history', style: TextStyle(color: AppColors.darkFig.withOpacity(0.5))),
+              Text(
+                'Could not load history',
+                style: TextStyle(color: colorScheme.onSurface.withOpacity(0.5)),
+              ),
               TextButton(
                 onPressed: () => ref.refresh(historyTablesProvider),
                 child: const Text('Retry'),
@@ -82,12 +89,13 @@ class HistoryScreen extends ConsumerWidget {
 
   // === 1. The "Journal Entry" Item ===
   Widget _buildHistoryItem(BuildContext context, TableSession table, bool isHost) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isSettled = table.status == TableStatus.settled;
-
-    // Visual Logic
-    final statusColor = isSettled ? AppColors.lushGreen : AppColors.darkFig.withOpacity(0.4);
+    final statusColor =
+        isSettled ? AppColors.lushGreen : colorScheme.onSurface.withOpacity(0.5);
     final statusIcon = isSettled ? Icons.receipt_long : Icons.cancel_presentation;
-    final bgColor = AppColors.snow;
+    final bgColor = colorScheme.surface;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -95,11 +103,12 @@ class HistoryScreen extends ConsumerWidget {
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(
-            color: AppColors.darkFig.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+          if (theme.brightness == Brightness.light)
+            BoxShadow(
+              color: AppColors.darkFig.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
         ],
       ),
       child: Material(
@@ -135,10 +144,10 @@ class HistoryScreen extends ConsumerWidget {
                           Expanded(
                             child: Text(
                               table.title ?? 'Table ${table.code}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.darkFig,
+                                color: colorScheme.onSurface,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -174,11 +183,18 @@ class HistoryScreen extends ConsumerWidget {
                             _formatDate(table.createdAt),
                             style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.darkFig.withOpacity(0.5),
+                              color: colorScheme.onSurface.withOpacity(0.6),
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Container(width: 3, height: 3, decoration: BoxDecoration(color: AppColors.darkFig.withOpacity(0.3), shape: BoxShape.circle)),
+                          Container(
+                            width: 3,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: colorScheme.onSurface.withOpacity(0.4),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             isSettled ? "Completed" : "Cancelled",
@@ -197,7 +213,10 @@ class HistoryScreen extends ConsumerWidget {
                 const SizedBox(width: 8),
 
                 // C. Chevron
-                Icon(Icons.chevron_right, color: AppColors.paleGray.withOpacity(0.8)),
+                Icon(
+                  Icons.chevron_right,
+                  color: colorScheme.onSurface.withOpacity(0.4),
+                ),
               ],
             ),
           ),
@@ -208,6 +227,9 @@ class HistoryScreen extends ConsumerWidget {
 
   // === 2. Empty State ===
   Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -217,24 +239,29 @@ class HistoryScreen extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: AppColors.snow,
+                color: colorScheme.surface,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(
-                    color: AppColors.deepBerry.withOpacity(0.05),
-                    blurRadius: 20,
-                    spreadRadius: 5,
-                  ),
+                  if (theme.brightness == Brightness.light)
+                    BoxShadow(
+                      color: AppColors.deepBerry.withOpacity(0.05),
+                      blurRadius: 20,
+                      spreadRadius: 5,
+                    ),
                 ],
               ),
-              child: Icon(Icons.history_edu, size: 48, color: AppColors.deepBerry.withOpacity(0.5)),
+              child: Icon(
+                Icons.history_edu,
+                size: 48,
+                color: colorScheme.primary.withOpacity(0.6),
+              ),
             ),
             const SizedBox(height: 24),
             Text(
               'No History Yet',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: AppColors.darkFig,
-                  fontWeight: FontWeight.bold
+              style: theme.textTheme.headlineSmall?.copyWith(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
@@ -242,7 +269,7 @@ class HistoryScreen extends ConsumerWidget {
               'Your completed dining sessions will appear here safe and sound.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: AppColors.darkFig.withOpacity(0.6),
+                color: colorScheme.onSurface.withOpacity(0.7),
                 height: 1.5,
               ),
             ),

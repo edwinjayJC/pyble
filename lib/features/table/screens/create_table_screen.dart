@@ -20,7 +20,8 @@ class CreateTableScreen extends ConsumerStatefulWidget {
 
 class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _titleController;
+  late final TextEditingController _titleController;
+  late final String _suggestedTitle;
 
   bool _isLoading = false;
   TableSession? _activeTable;
@@ -29,7 +30,8 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: _generateSmartTitle());
+    _suggestedTitle = _generateSmartTitle();
+    _titleController = TextEditingController();
     _checkForActiveTable();
   }
 
@@ -89,8 +91,9 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final enteredTitle = _titleController.text.trim();
       await ref.read(currentTableProvider.notifier).createTable(
-        title: _titleController.text.trim(),
+        title: enteredTitle.isEmpty ? 'Your Table' : enteredTitle,
       );
 
       final tableData = ref.read(currentTableProvider).valueOrNull;
@@ -206,37 +209,29 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                 if (_activeTable == null) ...[
                   TextFormField(
                     controller: _titleController,
-                    autofocus: false,
+                    textCapitalization: TextCapitalization.words,
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface // Input text color
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Session Name',
-                      hintText: 'e.g. Friday Lunch',
-                      prefixIcon: Icon(Icons.edit_outlined,
-                          color: theme.colorScheme.onSurface),
+                      labelText: 'Table Name (Optional)',
+                      hintText: _suggestedTitle,
+                      hintStyle: TextStyle(
+                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                        fontStyle: FontStyle.italic,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.edit_outlined,
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      ),
                       filled: true,
-                      // Use Surface for input background
                       fillColor: theme.colorScheme.surface,
                       border: const OutlineInputBorder(
                         borderRadius: AppRadius.allMd,
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    textCapitalization: TextCapitalization.sentences,
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Please enter a name'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "Give this session a name so your friends recognize it.",
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.onSurface.withOpacity(0.5)
-                    ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
 

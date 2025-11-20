@@ -49,11 +49,20 @@ class AppDrawer extends ConsumerWidget {
               children: [
                 _buildDrawerItem(
                   context,
-                  icon: Icons.home_rounded,
-                  label: "Home",
+                  icon: Icons.account_balance,
+                  label: "Payment Method",
                   onTap: () {
                     Navigator.pop(context);
-                    context.go(RoutePaths.home);
+                    context.push(RoutePaths.paymentMethod);
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.settings_outlined,
+                  label: "Settings",
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(RoutePaths.settings);
                   },
                 ),
                 _buildDrawerItem(
@@ -67,20 +76,11 @@ class AppDrawer extends ConsumerWidget {
                 ),
                 _buildDrawerItem(
                   context,
-                  icon: Icons.person_outline_rounded,
-                  label: "Profile",
+                  icon: Icons.description_outlined,
+                  label: "Terms & Conditions",
                   onTap: () {
                     Navigator.pop(context);
-                    // context.push(RoutePaths.profile);
-                  },
-                ),
-                _buildDrawerItem(
-                  context,
-                  icon: Icons.settings_outlined,
-                  label: "Settings",
-                  onTap: () {
-                    Navigator.pop(context);
-                    context.push(RoutePaths.settings);
+                    context.push(RoutePaths.terms);
                   },
                 ),
               ],

@@ -78,16 +78,19 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: theme.colorScheme.onSurface),
             onSelected: (value) {
-              if (value == 'cancel') _cancelTable();
+              if (value == 'unlock') _unlockBill();
             },
             itemBuilder: (context) => [
               PopupMenuItem(
-                value: 'cancel',
+                value: 'unlock',
                 child: Row(
                   children: [
-                    Icon(Icons.cancel, color: theme.colorScheme.error, size: 20),
+                    Icon(Icons.lock_open, color: theme.colorScheme.primary, size: 20),
                     const SizedBox(width: 8),
-                    Text('Cancel Table', style: TextStyle(color: theme.colorScheme.error)),
+                    Text(
+                      'Unlock Bill',
+                      style: TextStyle(color: theme.colorScheme.primary),
+                    ),
                   ],
                 ),
               ),
@@ -622,6 +625,62 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             SnackBar(content: Text('Error: $e'), backgroundColor: theme.colorScheme.error),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _unlockBill() async {
+    final theme = Theme.of(context);
+    final shouldUnlock = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unlock Bill?'),
+        content: const Text(
+          'Unlocking returns the table to the claim stage so guests can make more changes.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Keep Locked',
+              style: TextStyle(color: theme.colorScheme.onSurface),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+            ),
+            child: const Text('Unlock Bill'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldUnlock != true) return;
+
+    try {
+      final tableRepo = ref.read(tableRepositoryProvider);
+      await tableRepo.unlockTable(widget.tableId);
+      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Bill unlocked'),
+            backgroundColor: theme.colorScheme.primary,
+          ),
+        );
+        context.go('/table/${widget.tableId}/claim');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error unlocking bill: $e'),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
       }
     }
   }
