@@ -28,6 +28,7 @@ import '../../features/payments/screens/payment_processing_screen.dart';
 import '../../features/payments/models/payment_record.dart';
 import '../../features/history/screens/history_screen.dart';
 import '../../features/home/screens/home_screen.dart';
+import '../../features/home/screens/splash_screen.dart';
 import '../widgets/app_drawer.dart';
 
 const String _termsContent = '''
@@ -727,9 +728,10 @@ final routerProvider = Provider<GoRouter>((ref) {
   final userProfile = ref.watch(userProfileProvider);
 
   return GoRouter(
-    initialLocation: RoutePaths.home,
+    initialLocation: RoutePaths.splash,
     debugLogDiagnostics: true,
     redirect: (context, state) async {
+      final isSplashRoute = state.matchedLocation == RoutePaths.splash;
       final isAuthRoute = state.matchedLocation == RoutePaths.auth;
       final isOnboardingRoute = state.matchedLocation == RoutePaths.onboarding;
       final isVerifyRoute = state.matchedLocation == RoutePaths.verifyEmail;
@@ -739,12 +741,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       final prefs = await SharedPreferences.getInstance();
       final tutorialSeen = prefs.getBool(AppConstants.tutorialSeenKey) ?? false;
 
-      if (!tutorialSeen && !isOnboardingRoute && !isVerifyRoute) {
+      if (!tutorialSeen && !isOnboardingRoute && !isVerifyRoute && !isSplashRoute) {
         return RoutePaths.onboarding;
       }
 
       // Not authenticated
-      if (!isAuthenticated) {
+      if (!isAuthenticated && !isSplashRoute) {
         if (isAuthRoute || isOnboardingRoute || isVerifyRoute) return null;
         return RoutePaths.auth;
       }
@@ -763,6 +765,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: RoutePaths.splash,
+        name: RouteNames.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: RoutePaths.onboarding,
         name: RouteNames.onboarding,
