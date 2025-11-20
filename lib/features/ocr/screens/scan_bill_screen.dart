@@ -191,93 +191,97 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
 
     return Padding(
       padding: AppSpacing.screenPadding,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Spacer(),
-          // Illustration
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              // FIX: Use Surface color (White/Ink)
-              color: theme.colorScheme.surface,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
-                    blurRadius: 20,
-                    spreadRadius: 5
+      child: SafeArea(
+        top: false,
+        bottom: true,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Spacer(),
+            // Illustration
+            Container(
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                // FIX: Use Surface color (White/Ink)
+                color: theme.colorScheme.surface,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      blurRadius: 20,
+                      spreadRadius: 5
+                  ),
+                ],
+              ),
+              child: Icon(Icons.receipt_long,
+                  size: 64,
+                  color: theme.colorScheme.primary.withOpacity(0.8)),
+            ),
+            const SizedBox(height: 32),
+
+            Text(
+              "Snap the Bill",
+              style: theme.textTheme.headlineLarge?.copyWith(
+                  color: onSurface,
+                  fontWeight: FontWeight.bold
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "AI will magically extract items and prices.\nMake sure the receipt is well-lit.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 16,
+                  color: onSurface.withOpacity(0.6),
+                  height: 1.5
+              ),
+            ),
+
+            const Spacer(),
+
+            // Hero Button
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton.icon(
+                onPressed: () => _captureImage(ImageSource.camera),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  elevation: 4,
+                  shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.allMd),
+                ),
+                icon: const Icon(Icons.camera_alt),
+                label: const Text("Scan with Camera",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Secondary Options
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _captureImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library),
+                    label: const Text("Gallery"),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _showAddItemDialog,
+                    icon: const Icon(Icons.keyboard),
+                    label: const Text("Manual"),
+                  ),
                 ),
               ],
             ),
-            child: Icon(Icons.receipt_long,
-                size: 64,
-                color: theme.colorScheme.primary.withOpacity(0.8)),
-          ),
-          const SizedBox(height: 32),
-
-          Text(
-            "Snap the Bill",
-            style: theme.textTheme.headlineLarge?.copyWith(
-                color: onSurface,
-                fontWeight: FontWeight.bold
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            "AI will magically extract items and prices.\nMake sure the receipt is well-lit.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 16,
-                color: onSurface.withOpacity(0.6),
-                height: 1.5
-            ),
-          ),
-
-          const Spacer(),
-
-          // Hero Button
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton.icon(
-              onPressed: () => _captureImage(ImageSource.camera),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary,
-                elevation: 4,
-                shape: const RoundedRectangleBorder(
-                    borderRadius: AppRadius.allMd),
-              ),
-              icon: const Icon(Icons.camera_alt),
-              label: const Text("Scan with Camera",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Secondary Options
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _captureImage(ImageSource.gallery),
-                  icon: const Icon(Icons.photo_library),
-                  label: const Text("Gallery"),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _showAddItemDialog,
-                  icon: const Icon(Icons.keyboard),
-                  label: const Text("Manual"),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-        ],
+            const SizedBox(height: 15),
+          ],
+        ),
       ),
     );
   }
@@ -454,19 +458,23 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
         ),
 
         // Bottom Sticky Bar
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            boxShadow: [
-              BoxShadow(
+        SafeArea(
+          top: false,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.md,
+            ),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
                   color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
                   blurRadius: 10,
-                  offset: const Offset(0, -5)
-              )
-            ],
-          ),
-          child: SafeArea(
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -474,12 +482,20 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: theme.colorScheme.primary,
                   foregroundColor: theme.colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.md,
+                  ),
                   shape: const RoundedRectangleBorder(
-                      borderRadius: AppRadius.allMd),
+                    borderRadius: AppRadius.allMd,
+                  ),
                 ),
-                child: const Text("Looks Good, Go to Claims",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: const Text(
+                  "Looks Good, Go to Claims",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ),
           ),
