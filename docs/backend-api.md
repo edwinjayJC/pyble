@@ -15,6 +15,16 @@ All endpoints (unless specified) are protected. The client **must** send a valid
     * **Code:** `401 Unauthorized`
     * **Body:** `{ "error": "Authentication required." }`
 
+## Paystack Configuration
+
+Environment variables for all Paystack calls (no values hard-coded in code):
+
+* `PAYSTACK_PUBLIC_KEY` – `pk_test_xxx` / `pk_live_xxx`
+* `PAYSTACK_SECRET_KEY` – `sk_test_xxx` / `sk_live_xxx`
+* `PAYSTACK_ENV` – `test` or `live`
+* `PAYSTACK_CALLBACK_URL` – e.g. `https://api.my-domain.com/payments/paystack/callback`
+* `PAYSTACK_WEBHOOK_SECRET` – HMAC secret for webhook verification (kept distinct from the secret key)
+
 ---
 
 ## 2. Resource: Profiles & Auth
@@ -313,6 +323,81 @@ Endpoints for scanning and editing the bill.
 ## 5. Resource: Payments & Settlement
 
 Endpoints for handling the payment and verification flow.
+
+### Paystack diner payments (single merchant, no splits)
+
+*Table status mapping:* `open` → `claiming`, `pending_payments` → `collecting`, `ready_for_host_settlement` → payout-ready, `settled` → archived.
+
+#### `POST /payments/paystack/initialize`
+* **Action:** Creates a Paystack transaction per diner (reference: `pyble_<tableId>_<dinerId>_<rand>`).
+* **Body:**
+    ```json
+    {
+      "tableId": "table-uuid",
+      "dinerId": "diner-uuid",
+      "dinerEmail": "guest@example.com",
+      "chargeAmountZar": 120.55
+    }
+    ```
+* **Success Response:**
+    ```json
+    {
+      "authorization_url": "https://checkout.paystack.com/...",
+      "access_code": "ACCESS_xxx",
+      "reference": "pyble_table_diner_suffix",
+      "paymentId": "internal-payment-id"
+    }
+    ```
+* **Notes:** Amounts are sent to Paystack in minor units (ZAR cents). No `split_code` or subaccounts are used.
+
+#### `GET /payments/paystack/verify/:reference`
+* **Action:** Idempotent verification of a Paystack transaction.
+* **Success Response:**
+    ```json
+    {
+      "payment": {
+        "id": "internal-payment-id",
+        "status": "success",
+        "reference": "pyble_table_diner_suffix",
+        "tableId": "table-uuid",
+        "dinerId": "diner-uuid",
+        "amountZar": 120.55
+      },
+      "paystack": {
+        "status": "success",
+        "gatewayResponse": "Approved"
+      }
+    }
+    ```
+* **Side effects:** Marks the diner `paymentStatus` as `paid` and moves the table to `ready_for_host_settlement` when all diners are paid; failure marks the diner as `failed`.
+
+#### `POST /payments/paystack/webhook`
+* **Action:** Handles Paystack webhooks (notably `charge.success`).
+* **Security:** Validate `x-paystack-signature` via `HMAC-SHA512(raw_body, PAYSTACK_WEBHOOK_SECRET)`. Reject on mismatch.
+* **Behaviour:** On `charge.success`, mark the Payment as `success`, `diner.paymentStatus = paid`, and advance table status as above. Always return `200 OK` once processed to avoid retry storms.
+
+### Host payouts (outbound transfer to host)
+
+#### `POST /tables/:tableId/host-payout`
+* **Action:** After all diners are paid (`table.status = ready_for_host_settlement`), trigger a Paystack Transfer from the app’s balance to the host so they can pay the restaurant offline.
+* **Body:**
+    ```json
+    { "hostDinerId": "diner-uuid" }
+    ```
+* **Behaviour:** Looks up/creates a Paystack Transfer Recipient for the host, initiates the transfer, stores a `HostPayout` record, and (for v1) treats a successful enqueue/response as `status = success`, setting the table to `settled`.
+* **Response:**
+    ```json
+    {
+      "tableId": "table-uuid",
+      "tableStatus": "settled",
+      "hostPayout": {
+        "id": "payout-id",
+        "status": "success",
+        "payoutAmountZar": 500.00
+      }
+    }
+    ```
+* **Note:** No restaurant payments or Paystack transaction splits are used in v1; the restaurant is paid outside the app by the host.
 
 ### `POST /tables/:tableId/pay`
 * **Action:** (Phase 4) (Participant) Initiates an in-app payment via Paystack.

@@ -48,10 +48,14 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     final day = DateFormat('EEEE').format(now); // "Friday"
     String meal = "Gathering";
 
-    if (now.hour < 11) meal = "Breakfast";
-    else if (now.hour < 16) meal = "Lunch";
-    else if (now.hour < 22) meal = "Dinner";
-    else meal = "Late Night";
+    if (now.hour < 11)
+      meal = "Breakfast";
+    else if (now.hour < 16)
+      meal = "Lunch";
+    else if (now.hour < 22)
+      meal = "Dinner";
+    else
+      meal = "Late Night";
 
     return "$day $meal";
   }
@@ -65,10 +69,12 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
       final activeTables = await repository.getActiveTables();
 
       final hostedTable = activeTables
-          .where((table) =>
-      table.hostUserId == currentUser.id &&
-          (table.status == TableStatus.claiming ||
-              table.status == TableStatus.collecting))
+          .where(
+            (table) =>
+                table.hostUserId == currentUser.id &&
+                (table.status == TableStatus.claiming ||
+                    table.status == TableStatus.collecting),
+          )
           .firstOrNull;
 
       if (mounted && hostedTable != null) {
@@ -96,9 +102,9 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
       // UX FIX: If empty, use the Smart Suggestion as the actual title
       final finalTitle = enteredTitle.isEmpty ? _suggestedTitle : enteredTitle;
 
-      await ref.read(currentTableProvider.notifier).createTable(
-        title: finalTitle,
-      );
+      await ref
+          .read(currentTableProvider.notifier)
+          .createTable(title: finalTitle);
 
       final tableData = ref.read(currentTableProvider).valueOrNull;
 
@@ -129,11 +135,15 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
       builder: (context) => AlertDialog(
         title: const Text("Resume Active Event?"),
         content: Text(
-            "You already have an open event: '${_activeTable?.title ?? 'Untitled'}'.\n\nYou must finish or cancel that one before starting a new one."),
+          "You already have an open event: '${_activeTable?.title ?? 'Untitled'}'.\n\nYou must finish or cancel that one before starting a new one.",
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text("Cancel", style: TextStyle(color: theme.colorScheme.onSurface)),
+            child: Text(
+              "Cancel",
+              style: TextStyle(color: theme.colorScheme.onSurface),
+            ),
           ),
           ElevatedButton(
             onPressed: () {
@@ -142,8 +152,9 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
               context.go('/table/${_activeTable!.id}/invite');
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-                foregroundColor: theme.colorScheme.onPrimary),
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+            ),
             child: const Text("Go to Event"),
           ),
         ],
@@ -175,7 +186,9 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                   return SingleChildScrollView(
                     padding: AppSpacing.screenPadding,
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      constraints: BoxConstraints(
+                        minHeight: constraints.maxHeight,
+                      ),
                       child: IntrinsicHeight(
                         child: Form(
                           key: _formKey,
@@ -214,7 +227,8 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                               Text(
                                 'Set up the table now.\nInvite friends before you even arrive.',
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.6),
                                   height: 1.5,
                                 ),
                                 textAlign: TextAlign.center,
@@ -223,13 +237,15 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                               const SizedBox(height: 40),
 
                               // The Resume Card
-                              if (_activeTable != null) _buildResumeCard(context),
+                              if (_activeTable != null)
+                                _buildResumeCard(context),
 
                               // 3. Input Fields
                               if (_activeTable == null) ...[
                                 TextFormField(
                                   controller: _titleController,
-                                  textCapitalization: TextCapitalization.sentences,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: theme.colorScheme.onSurface,
@@ -237,14 +253,17 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                                   decoration: InputDecoration(
                                     labelText: 'Event Name',
                                     hintText: _suggestedTitle,
-                                    floatingLabelBehavior: FloatingLabelBehavior.always,
+                                    floatingLabelBehavior:
+                                        FloatingLabelBehavior.always,
                                     hintStyle: TextStyle(
-                                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                      color: theme.colorScheme.onSurface
+                                          .withOpacity(0.4),
                                       fontStyle: FontStyle.normal,
                                     ),
                                     prefixIcon: Icon(
                                       Icons.edit_outlined,
-                                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                      color: theme.colorScheme.onSurface
+                                          .withOpacity(0.7),
                                     ),
                                     filled: true,
                                     fillColor: theme.colorScheme.surface,
@@ -259,7 +278,8 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                                   "Leave empty to name it '$_suggestedTitle'",
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.5),
                                   ),
                                   textAlign: TextAlign.center,
                                 ),
@@ -308,8 +328,8 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
             onPressed: _isLoading
                 ? null
                 : (_activeTable != null
-                    ? () => context.go('/table/${_activeTable!.id}/invite')
-                    : _createTable),
+                      ? () => context.go('/table/${_activeTable!.id}/invite')
+                      : _createTable),
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: theme.colorScheme.onPrimary,
@@ -364,15 +384,17 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                 Text(
                   "Event in Progress",
                   style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.bold),
+                    fontSize: 12,
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Text(
                   _activeTable?.title ?? "Table ${_activeTable?.code}",
                   style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface),
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ],
             ),

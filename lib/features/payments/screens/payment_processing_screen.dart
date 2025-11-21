@@ -9,12 +9,12 @@ import '../models/payment_record.dart';
 
 class PaymentProcessingScreen extends ConsumerStatefulWidget {
   final String tableId;
-  final String paymentId;
+  final String paymentReference;
 
   const PaymentProcessingScreen({
     super.key,
     required this.tableId,
-    required this.paymentId,
+    required this.paymentReference,
   });
 
   @override
@@ -28,7 +28,12 @@ class _PaymentProcessingScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(paymentStatusProvider.notifier).startPolling(widget.paymentId);
+      final notifier = ref.read(paymentStatusProvider.notifier);
+      if (widget.paymentReference.isNotEmpty) {
+        notifier.startPolling(widget.paymentReference);
+      } else {
+        notifier.markFailure('Missing payment reference');
+      }
     });
   }
 
@@ -76,14 +81,9 @@ class _PaymentProcessingScreenState
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const CircularProgressIndicator(
-          color: AppColors.deepBerry,
-        ),
+        const CircularProgressIndicator(color: AppColors.deepBerry),
         const SizedBox(height: AppSpacing.lg),
-        Text(
-          'Initializing...',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('Initializing...', style: Theme.of(context).textTheme.titleMedium),
       ],
     );
   }
@@ -103,16 +103,16 @@ class _PaymentProcessingScreenState
         const SizedBox(height: AppSpacing.xl),
         Text(
           'Processing Your Payment',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
           'Please wait while we confirm your payment...',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.darkFig.withOpacity(0.7),
-              ),
+            color: AppColors.darkFig.withOpacity(0.7),
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -162,9 +162,9 @@ class _PaymentProcessingScreenState
         Text(
           'Payment Successful!',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: AppColors.lushGreen,
-                fontWeight: FontWeight.bold,
-              ),
+            color: AppColors.lushGreen,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
@@ -212,9 +212,9 @@ class _PaymentProcessingScreenState
         Text(
           'Payment Failed',
           style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                color: AppColors.warmSpice,
-                fontWeight: FontWeight.bold,
-              ),
+            color: AppColors.warmSpice,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(

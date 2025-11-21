@@ -12,7 +12,6 @@ import '../../../core/widgets/app_drawer.dart';
 // Feature Imports
 import '../../table/providers/table_provider.dart';
 import '../../table/models/table_session.dart';
-import '../../table/repository/table_repository.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -69,10 +68,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     // Logic: Check if host of any active table
     final activeTablesList = activeTablesAsync.valueOrNull ?? [];
-    final isHost = activeTablesList.any((t) =>
-    t.hostUserId == currentUser?.id &&
-        (t.status == TableStatus.claiming ||
-            t.status == TableStatus.collecting));
+    final isHost = activeTablesList.any(
+      (t) =>
+          t.hostUserId == currentUser?.id &&
+          (t.status == TableStatus.claiming ||
+              t.status == TableStatus.collecting ||
+              t.status == TableStatus.pendingPayments ||
+              t.status == TableStatus.readyForHostSettlement ||
+              t.status == TableStatus.open),
+    );
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -100,8 +104,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.history_toggle_off,
-                        size: 16, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                    Icon(
+                      Icons.history_toggle_off,
+                      size: 16,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       "ACTIVE SESSIONS",
@@ -120,9 +127,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             activeTablesAsync.when(
               data: (tables) {
                 final visibleTables = tables
-                    .where((t) =>
-                t.status == TableStatus.claiming ||
-                    t.status == TableStatus.collecting)
+                    .where(
+                      (t) =>
+                          t.status == TableStatus.claiming ||
+                          t.status == TableStatus.collecting ||
+                          t.status == TableStatus.pendingPayments ||
+                          t.status == TableStatus.readyForHostSettlement ||
+                          t.status == TableStatus.open,
+                    )
                     .toList();
 
                 if (visibleTables.isEmpty) {
@@ -133,29 +145,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 }
 
                 return SliverPadding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                        return _TicketCard(
-                          table: visibleTables[index],
-                          currentUserId: currentUser?.id,
-                        );
-                      },
-                      childCount: visibleTables.length,
-                    ),
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      return _TicketCard(
+                        table: visibleTables[index],
+                        currentUserId: currentUser?.id,
+                      );
+                    }, childCount: visibleTables.length),
                   ),
                 );
               },
               // Use SliverFillRemaining for loading/error to center content nicely
               loading: () => SliverFillRemaining(
                 child: Center(
-                    child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+                  child: CircularProgressIndicator(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
               ),
-              error: (e, _) => SliverFillRemaining(
-                child: _buildErrorState(context, e),
-              ),
+              error: (e, _) =>
+                  SliverFillRemaining(child: _buildErrorState(context, e)),
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 80)),
@@ -173,14 +186,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline,
-                size: 64, color: theme.colorScheme.error),
+            Icon(Icons.error_outline, size: 64, color: theme.colorScheme.error),
             const SizedBox(height: 16),
             Text(
               'Unable to Load Tables',
               style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 8),
@@ -198,7 +210,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 backgroundColor: theme.colorScheme.primary,
                 foregroundColor: theme.colorScheme.onPrimary,
                 padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
@@ -228,7 +242,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             color: AppColors.snow,
             fontSize: 32,
             shadows: [
-              Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
+              Shadow(
+                offset: Offset(0, 2),
+                blurRadius: 4,
+                color: Colors.black26,
+              ),
             ],
           ),
         ),
@@ -237,10 +255,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFB70043),
-                Color(0xFFD9275D),
-              ],
+              colors: [Color(0xFFB70043), Color(0xFFD9275D)],
             ),
           ),
           child: Stack(
@@ -249,8 +264,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 right: -20,
                 top: -20,
                 child: CircleAvatar(
-                    radius: 60,
-                    backgroundColor: Colors.white.withOpacity(0.05)),
+                  radius: 60,
+                  backgroundColor: Colors.white.withOpacity(0.05),
+                ),
               ),
             ],
           ),
@@ -350,11 +366,15 @@ class _ActionCard extends StatelessWidget {
         child: InkWell(
           onTap: isDisabled
               ? () {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Text("You are already hosting a table. Close it to start a new one."),
-              backgroundColor: theme.colorScheme.error,
-            ));
-          }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text(
+                        "You are already hosting a table. Close it to start a new one.",
+                      ),
+                      backgroundColor: theme.colorScheme.error,
+                    ),
+                  );
+                }
               : onTap,
           borderRadius: AppRadius.allLg,
           child: Container(
@@ -378,8 +398,11 @@ class _ActionCard extends StatelessWidget {
                         : Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon,
-                      color: isOutlined ? color : Colors.white, size: 24),
+                  child: Icon(
+                    icon,
+                    color: isOutlined ? color : Colors.white,
+                    size: 24,
+                  ),
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +425,7 @@ class _ActionCard extends StatelessWidget {
                       ),
                     ),
                   ],
-                )
+                ),
               ],
             ),
           ),
@@ -468,7 +491,10 @@ class _TicketCard extends ConsumerWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text('Keep Table', style: TextStyle(color: theme.colorScheme.onSurface)),
+                  child: Text(
+                    'Keep Table',
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -492,7 +518,10 @@ class _TicketCard extends ConsumerWidget {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text('Stay', style: TextStyle(color: theme.colorScheme.onSurface)),
+                  child: Text(
+                    'Stay',
+                    style: TextStyle(color: theme.colorScheme.onSurface),
+                  ),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -544,7 +573,9 @@ class _TicketCard extends ConsumerWidget {
                 backgroundColor: theme.colorScheme.error,
               ),
             );
-            ref.invalidate(activeTablesProvider); // Reload on error to restore state
+            ref.invalidate(
+              activeTablesProvider,
+            ); // Reload on error to restore state
           }
         }
       },
@@ -575,8 +606,14 @@ class _TicketCard extends ConsumerWidget {
                     width: 4,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: table.status == TableStatus.collecting
-                          ? theme.colorScheme.error // Warm Spice
+                      color:
+                          (table.status == TableStatus.collecting ||
+                              table.status == TableStatus.pendingPayments ||
+                              table.status ==
+                                  TableStatus.readyForHostSettlement)
+                          ? theme
+                                .colorScheme
+                                .error // Warm Spice
                           : theme.colorScheme.primary, // Deep Berry
                       borderRadius: BorderRadius.circular(2),
                     ),
@@ -590,7 +627,10 @@ class _TicketCard extends ConsumerWidget {
                       color: theme.dividerColor.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.receipt_long, color: theme.colorScheme.onSurface),
+                    child: Icon(
+                      Icons.receipt_long,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(width: 16),
 
@@ -608,14 +648,34 @@ class _TicketCard extends ConsumerWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            if (isHost) _buildTag(context, "HOST", theme.colorScheme.primary),
-                            if (table.status == TableStatus.collecting)
-                              _buildTag(context, "COLLECTING", theme.colorScheme.error),
+                            if (isHost)
+                              _buildTag(
+                                context,
+                                "HOST",
+                                theme.colorScheme.primary,
+                              ),
+                            if (table.status == TableStatus.collecting ||
+                                table.status == TableStatus.pendingPayments)
+                              _buildTag(
+                                context,
+                                "COLLECTING",
+                                theme.colorScheme.error,
+                              ),
+                            if (table.status ==
+                                TableStatus.readyForHostSettlement)
+                              _buildTag(
+                                context,
+                                "READY FOR PAYOUT",
+                                theme.colorScheme.error,
+                              ),
                             Text(
                               " • ${table.code}",
                               style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                  fontWeight: FontWeight.bold),
+                                color: theme.colorScheme.onSurface.withOpacity(
+                                  0.6,
+                                ),
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
@@ -643,7 +703,11 @@ class _TicketCard extends ConsumerWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
       ),
     );
   }
@@ -667,37 +731,50 @@ class _EmptyStateIllustration extends StatelessWidget {
               alignment: Alignment.center,
               children: [
                 CircleAvatar(
-                    radius: 50,
-                    backgroundColor: theme.colorScheme.primary.withOpacity(0.1)),
-                Icon(Icons.restaurant, size: 40, color: onSurface.withOpacity(0.4)),
+                  radius: 50,
+                  backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                ),
+                Icon(
+                  Icons.restaurant,
+                  size: 40,
+                  color: onSurface.withOpacity(0.4),
+                ),
               ],
             ),
             const SizedBox(height: 24),
             Text(
               "Ready to Order?",
               style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: onSurface),
+                fontWeight: FontWeight.bold,
+                color: onSurface,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               "Start a new table or join your friends to split the bill instantly.",
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                  color: onSurface.withOpacity(0.6),
-                  height: 1.5),
+                color: onSurface.withOpacity(0.6),
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 40),
             Column(
               children: [
-                Text("Use buttons above",
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: onSurface.withOpacity(0.3))),
-                Icon(Icons.arrow_upward,
-                    size: 16, color: onSurface.withOpacity(0.3)),
+                Text(
+                  "Use buttons above",
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: onSurface.withOpacity(0.3),
+                  ),
+                ),
+                Icon(
+                  Icons.arrow_upward,
+                  size: 16,
+                  color: onSurface.withOpacity(0.3),
+                ),
               ],
-            )
+            ),
           ],
         ),
       ),

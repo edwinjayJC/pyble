@@ -48,7 +48,9 @@ class SplitRequest {
       requestedByUserId: json['requestedByUserId'] as String? ?? '',
       requestedByName: json['requestedByName'] as String? ?? 'Host',
       targetUserId: json['targetUserId'] as String? ?? '',
-      status: SplitRequestStatus.fromString(json['status'] as String? ?? 'pending'),
+      status: SplitRequestStatus.fromString(
+        json['status'] as String? ?? 'pending',
+      ),
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),

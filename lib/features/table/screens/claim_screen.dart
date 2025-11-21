@@ -51,7 +51,11 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     final theme = Theme.of(context);
 
     ref.listen<TableStatus?>(tableStatusProvider, (previous, next) {
-      if (previous == TableStatus.claiming && next == TableStatus.collecting) {
+      final movedToCollection =
+          next == TableStatus.collecting ||
+          next == TableStatus.pendingPayments ||
+          next == TableStatus.readyForHostSettlement;
+      if (previous == TableStatus.claiming && movedToCollection) {
         ref.read(currentTableProvider.notifier).stopPolling();
         if (isHost) {
           context.go('/table/${widget.tableId}/dashboard');
@@ -72,24 +76,35 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         data: (tableData) {
           if (tableData == null) return const Center(child: Text('No Data'));
 
-          if (tableData.table.status == TableStatus.collecting) {
+          if (tableData.table.status == TableStatus.collecting ||
+              tableData.table.status == TableStatus.pendingPayments ||
+              tableData.table.status == TableStatus.readyForHostSettlement) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               ref.read(currentTableProvider.notifier).stopPolling();
-              if (isHost) context.go('/table/${widget.tableId}/dashboard');
-              else context.go('/table/${widget.tableId}/payment');
+              if (isHost)
+                context.go('/table/${widget.tableId}/dashboard');
+              else
+                context.go('/table/${widget.tableId}/payment');
             });
             return const Center(child: CircularProgressIndicator());
           }
 
           if (tableData.table.status == TableStatus.settled) {
-            WidgetsBinding.instance.addPostFrameCallback((_) => context.go('/home'));
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => context.go('/home'),
+            );
             return const Center(child: CircularProgressIndicator());
           }
 
           final myTotal = _calculateUserTotal(tableData.items, currentUser?.id);
-          final unclaimedCount = tableData.items.where((i) => !i.isClaimed).length;
+          final unclaimedCount = tableData.items
+              .where((i) => !i.isClaimed)
+              .length;
           // Calculate total bill for the footer context
-          final totalBill = tableData.items.fold(0.0, (sum, item) => sum + item.price);
+          final totalBill = tableData.items.fold(
+            0.0,
+            (sum, item) => sum + item.price,
+          );
 
           return Column(
             children: [
@@ -97,36 +112,49 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 child: tableData.items.isEmpty
                     ? _buildEmptyState(context, isHost)
                     : ListView.builder(
-                  padding: const EdgeInsets.only(
-                      top: AppSpacing.sm, bottom: AppSpacing.xl),
-                  itemCount: tableData.items.length,
-                  itemBuilder: (context, index) {
-                    final item = tableData.items[index];
-                    return BillItemRow(
-                      item: item,
-                      participants: tableData.participants,
-                      currentUserId: currentUser?.id,
-                      isHost: isHost,
-                      onClaimToggle: () => _handleClaimToggle(item.id),
-                      onSplit: () => _showSplitSheet(item, tableData.participants),
-                    );
-                  },
-                ),
+                        padding: const EdgeInsets.only(
+                          top: AppSpacing.sm,
+                          bottom: AppSpacing.xl,
+                        ),
+                        itemCount: tableData.items.length,
+                        itemBuilder: (context, index) {
+                          final item = tableData.items[index];
+                          return BillItemRow(
+                            item: item,
+                            participants: tableData.participants,
+                            currentUserId: currentUser?.id,
+                            isHost: isHost,
+                            onClaimToggle: () => _handleClaimToggle(item.id),
+                            onSplit: () =>
+                                _showSplitSheet(item, tableData.participants),
+                          );
+                        },
+                      ),
               ),
               _buildStickyFooter(
-                  context, myTotal, totalBill, unclaimedCount, isHost, tableData.items),
+                context,
+                myTotal,
+                totalBill,
+                unclaimedCount,
+                isHost,
+                tableData.items,
+              ),
             ],
           );
         },
         loading: () => Center(
-            child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+          child: CircularProgressIndicator(color: theme.colorScheme.primary),
+        ),
         error: (e, _) => Center(child: Text('Error: $e')),
       ),
     );
   }
 
   PreferredSizeWidget _buildAppBar(
-      BuildContext context, String? tableCode, bool isHost) {
+    BuildContext context,
+    String? tableCode,
+    bool isHost,
+  ) {
     final theme = Theme.of(context);
 
     return AppBar(
@@ -179,15 +207,21 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         if (!isHost)
           Consumer(
             builder: (context, ref, child) {
-              final requestsAsync = ref.watch(pendingSplitRequestsProvider(widget.tableId));
+              final requestsAsync = ref.watch(
+                pendingSplitRequestsProvider(widget.tableId),
+              );
               return requestsAsync.when(
                 data: (requests) {
                   if (requests.isEmpty) return const SizedBox.shrink();
                   return Stack(
                     children: [
                       IconButton(
-                        icon: Icon(Icons.notifications, color: AppColors.warmSpice),
-                        onPressed: () => _showSplitRequestsSheet(context, requests),
+                        icon: Icon(
+                          Icons.notifications,
+                          color: AppColors.warmSpice,
+                        ),
+                        onPressed: () =>
+                            _showSplitRequestsSheet(context, requests),
                         tooltip: 'Split Requests',
                       ),
                       Positioned(
@@ -266,7 +300,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 value: 'cancel',
                 child: ListTile(
                   leading: Icon(Icons.cancel, color: theme.colorScheme.error),
-                  title: Text('Cancel Table', style: TextStyle(color: theme.colorScheme.error)),
+                  title: Text(
+                    'Cancel Table',
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -286,7 +323,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           const SizedBox(height: AppSpacing.md),
           Text(
             isHost ? "Scan a receipt to start" : "Waiting for Host...",
-            style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.5)),
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
           ),
           if (isHost) ...[
             const SizedBox(height: 24),
@@ -294,15 +333,21 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               onPressed: () => context.go('/table/${widget.tableId}/scan'),
               icon: const Icon(Icons.camera_alt),
               label: const Text("Scan Bill"),
-            )
-          ]
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildStickyFooter(BuildContext context, double myTotal, double totalBill,
-      int unclaimedCount, bool isHost, List<BillItem> items) {
+  Widget _buildStickyFooter(
+    BuildContext context,
+    double myTotal,
+    double totalBill,
+    int unclaimedCount,
+    bool isHost,
+    List<BillItem> items,
+  ) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final colorScheme = theme.colorScheme;
@@ -364,7 +409,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                   child: ElevatedButton(
                     onPressed: unclaimedCount > 0
                         ? () => _showUnclaimedDialog(unclaimedCount)
-                        : () => _showGratuitySheet(context, totalBill), // NEW ACTION
+                        : () => _showGratuitySheet(
+                            context,
+                            totalBill,
+                          ), // NEW ACTION
                     style: ElevatedButton.styleFrom(
                       backgroundColor: unclaimedCount > 0
                           ? colorScheme.error.withOpacity(0.15) // Tonal Alert
@@ -374,13 +422,17 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                           : colorScheme.onPrimary,
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          unclaimedCount > 0 ? Icons.warning_amber_rounded : Icons.receipt_long,
+                          unclaimedCount > 0
+                              ? Icons.warning_amber_rounded
+                              : Icons.receipt_long,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -388,7 +440,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                           unclaimedCount > 0
                               ? "Review $unclaimedCount Unclaimed Items"
                               : "Add Tip & Lock Bill", // Updated Text
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                       ],
                     ),
@@ -419,7 +474,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     final claimed = items.where((i) => i.isClaimed).length;
     final progress = claimed / items.length;
     final isComplete = progress == 1.0;
-    final activeColor = isComplete ? AppColors.lushGreen : theme.colorScheme.primary;
+    final activeColor = isComplete
+        ? AppColors.lushGreen
+        : theme.colorScheme.primary;
 
     return SizedBox(
       width: 40,
@@ -436,12 +493,13 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             child: isComplete
                 ? Icon(Icons.check, size: 20, color: activeColor)
                 : Text(
-              "${(progress * 100).toInt()}%",
-              style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface),
-            ),
+                    "${(progress * 100).toInt()}%",
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -475,7 +533,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
             // Separate into self and others
             final selfSelected = userIds.contains(currentUser.id);
-            final otherUserIds = userIds.where((id) => id != currentUser.id).toList();
+            final otherUserIds = userIds
+                .where((id) => id != currentUser.id)
+                .toList();
 
             // Check if host is already claimed on this item
             final hostAlreadyClaimed = item.isClaimedByUser(currentUser.id);
@@ -486,22 +546,27 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 // Handle host's own claim first
                 if (selfSelected && !hostAlreadyClaimed) {
                   // Host selected themselves and wasn't already claimed - add claim
-                  await ref.read(currentTableProvider.notifier).claimItem(item.id);
+                  await ref
+                      .read(currentTableProvider.notifier)
+                      .claimItem(item.id);
                 } else if (!selfSelected && hostAlreadyClaimed) {
                   // Host deselected themselves but was claimed - remove claim
-                  await ref.read(currentTableProvider.notifier).claimItem(item.id);
+                  await ref
+                      .read(currentTableProvider.notifier)
+                      .claimItem(item.id);
                 }
                 // If selfSelected && hostAlreadyClaimed, do nothing (already claimed)
                 // If !selfSelected && !hostAlreadyClaimed, do nothing (already not claimed)
 
                 // Create split requests for other participants
-                final requests = await ref.read(currentTableProvider.notifier).requestSplit(
-                  itemId: item.id,
-                  userIds: otherUserIds,
-                );
+                final requests = await ref
+                    .read(currentTableProvider.notifier)
+                    .requestSplit(itemId: item.id, userIds: otherUserIds);
 
                 // Force refresh table data to get latest state
-                await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+                await ref
+                    .read(currentTableProvider.notifier)
+                    .loadTable(widget.tableId, showLoading: false);
 
                 // Invalidate split requests provider to refresh notifications
                 ref.invalidate(pendingSplitRequestsProvider(widget.tableId));
@@ -522,7 +587,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                     // Requests already exist for these users
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: const Text('Split requests already pending for selected participants.'),
+                        content: const Text(
+                          'Split requests already pending for selected participants.',
+                        ),
                         backgroundColor: Theme.of(context).colorScheme.primary,
                         behavior: SnackBarBehavior.floating,
                       ),
@@ -531,7 +598,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 }
               } catch (e) {
                 // Refresh to get correct state even on error
-                await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+                await ref
+                    .read(currentTableProvider.notifier)
+                    .loadTable(widget.tableId, showLoading: false);
 
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -545,7 +614,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             } else {
               // Participant can only claim for themselves, or host selected only themselves
               // Use the regular split flow
-              ref.read(currentTableProvider.notifier).splitItemAcrossUsers(item.id, userIds);
+              ref
+                  .read(currentTableProvider.notifier)
+                  .splitItemAcrossUsers(item.id, userIds);
             }
           },
         ),
@@ -553,7 +624,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
-  void _showSplitRequestsSheet(BuildContext context, List<SplitRequest> requests) {
+  void _showSplitRequestsSheet(
+    BuildContext context,
+    List<SplitRequest> requests,
+  ) {
     final theme = Theme.of(context);
 
     showModalBottomSheet(
@@ -568,10 +642,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
           requests: requests,
           onRespond: (requestId, action) async {
             try {
-              await ref.read(currentTableProvider.notifier).respondToSplitRequest(
-                requestId: requestId,
-                action: action,
-              );
+              await ref
+                  .read(currentTableProvider.notifier)
+                  .respondToSplitRequest(requestId: requestId, action: action);
 
               // Refresh the split requests
               ref.invalidate(pendingSplitRequestsProvider(widget.tableId));
@@ -632,11 +705,18 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 children: [
                   Text(
                     "Who is here?",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
                   ),
                   Text(
                     "${tableData.participants.length} Guests",
-                    style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    ),
                   ),
                 ],
               ),
@@ -646,28 +726,55 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: tableData.participants.length,
-                separatorBuilder: (ctx, i) => Divider(height: 1, color: theme.dividerColor),
+                separatorBuilder: (ctx, i) =>
+                    Divider(height: 1, color: theme.dividerColor),
                 itemBuilder: (context, index) {
                   final p = tableData.participants[index];
                   final isHostUser = p.userId == tableData.table.hostUserId;
                   return ListTile(
                     leading: CircleAvatar(
-                      backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                      backgroundImage: p.avatarUrl != null ? NetworkImage(p.avatarUrl!) : null,
+                      backgroundColor: theme.colorScheme.primary.withOpacity(
+                        0.1,
+                      ),
+                      backgroundImage: p.avatarUrl != null
+                          ? NetworkImage(p.avatarUrl!)
+                          : null,
                       child: p.avatarUrl == null
-                          ? Text(p.initials, style: TextStyle(color: theme.colorScheme.primary, fontWeight: FontWeight.bold))
+                          ? Text(
+                              p.initials,
+                              style: TextStyle(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
                           : null,
                     ),
-                    title: Text(p.displayName, style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)),
+                    title: Text(
+                      p.displayName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
                     trailing: isHostUser
                         ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text("HOST", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-                    )
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              "HOST",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          )
                         : null,
                   );
                 },
@@ -707,7 +814,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         title: const Text("Unclaimed Items"),
         content: Text("There are still $count items that nobody has claimed."),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Back")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Back"),
+          ),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -764,16 +874,17 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
 
         // 2. Create split requests for other participants if there are any
         if (otherUserIds.isNotEmpty) {
-          final requests = await ref.read(currentTableProvider.notifier).requestSplit(
-            itemId: item.id,
-            userIds: otherUserIds,
-          );
+          final requests = await ref
+              .read(currentTableProvider.notifier)
+              .requestSplit(itemId: item.id, userIds: otherUserIds);
           totalRequestsSent += requests.length;
         }
       }
 
       // Force refresh table data to get latest state
-      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+      await ref
+          .read(currentTableProvider.notifier)
+          .loadTable(widget.tableId, showLoading: false);
 
       // Invalidate split requests provider to refresh notifications for participants
       ref.invalidate(pendingSplitRequestsProvider(widget.tableId));
@@ -792,7 +903,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Split ${orphans.length} items. You are the only participant.'),
+              content: Text(
+                'Split ${orphans.length} items. You are the only participant.',
+              ),
               backgroundColor: Theme.of(context).colorScheme.primary,
               behavior: SnackBarBehavior.floating,
             ),
@@ -801,7 +914,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
       }
     } catch (e) {
       // Refresh to get correct state even on error
-      await ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+      await ref
+          .read(currentTableProvider.notifier)
+          .loadTable(widget.tableId, showLoading: false);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -820,7 +935,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     // Assuming lockTable now accepts a tipAmount parameter.
     // If your backend isn't ready, you can pass 0.0 for now,
     // but the UI flow is ready for the feature.
-    await ref.read(currentTableProvider.notifier).lockTable(tipAmount: tipAmount);
+    await ref
+        .read(currentTableProvider.notifier)
+        .lockTable(tipAmount: tipAmount);
   }
 
   Future<void> _confirmCancelTable(BuildContext context) async {
@@ -834,7 +951,10 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text('Keep Table', style: TextStyle(color: theme.colorScheme.primary)),
+            child: Text(
+              'Keep Table',
+              style: TextStyle(color: theme.colorScheme.primary),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(dialogContext, true),
@@ -912,8 +1032,10 @@ class _GratuitySheetState extends State<GratuitySheet> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
-          24, 24, 24,
-          MediaQuery.of(context).viewInsets.bottom + 24
+        24,
+        24,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -931,8 +1053,8 @@ class _GratuitySheetState extends State<GratuitySheet> {
           Text(
             "Select a tip for the group. This will be split proportionally.",
             style: TextStyle(
-                color: colorScheme.onSurface.withOpacity(0.6),
-                fontSize: 14
+              color: colorScheme.onSurface.withOpacity(0.6),
+              fontSize: 14,
             ),
             textAlign: TextAlign.center,
           ),
@@ -955,7 +1077,9 @@ class _GratuitySheetState extends State<GratuitySheet> {
             const SizedBox(height: 16),
             TextField(
               controller: _customController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: "Custom Tip Amount",
                 prefixText: "\$ ",
@@ -1000,9 +1124,14 @@ class _GratuitySheetState extends State<GratuitySheet> {
                 backgroundColor: AppColors.deepBerry,
                 foregroundColor: AppColors.snow,
                 elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text("Confirm & Lock Bill", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: const Text(
+                "Confirm & Lock Bill",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -1027,19 +1156,25 @@ class _GratuitySheetState extends State<GratuitySheet> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surface,
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-                color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
-                width: 1.5
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.dividerColor,
+              width: 1.5,
             ),
           ),
           child: Text(
             "$percent%",
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface
+              fontWeight: FontWeight.bold,
+              color: isSelected
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
             ),
           ),
         ),
@@ -1064,19 +1199,25 @@ class _GratuitySheetState extends State<GratuitySheet> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surface,
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-                color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
-                width: 1.5
+              color: isSelected
+                  ? theme.colorScheme.primary
+                  : theme.dividerColor,
+              width: 1.5,
             ),
           ),
           child: Text(
             "Custom",
             textAlign: TextAlign.center,
             style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface
+              fontWeight: FontWeight.bold,
+              color: isSelected
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
             ),
           ),
         ),
@@ -1084,21 +1225,32 @@ class _GratuitySheetState extends State<GratuitySheet> {
     );
   }
 
-  Widget _buildRow(String label, double value, ThemeData theme, {bool isBold = false, bool isTotal = false}) {
+  Widget _buildRow(
+    String label,
+    double value,
+    ThemeData theme, {
+    bool isBold = false,
+    bool isTotal = false,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: TextStyle(
-          fontSize: isTotal ? 18 : 14,
-          fontWeight: isBold || isTotal ? FontWeight.bold : FontWeight.normal,
-          color: theme.colorScheme.onSurface.withOpacity(isTotal ? 1.0 : 0.7),
-        )),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isTotal ? 18 : 14,
+            fontWeight: isBold || isTotal ? FontWeight.bold : FontWeight.normal,
+            color: theme.colorScheme.onSurface.withOpacity(isTotal ? 1.0 : 0.7),
+          ),
+        ),
         Text(
           "${AppConstants.currencySymbol}${value.toStringAsFixed(2)}",
           style: TextStyle(
             fontSize: isTotal ? 20 : 14,
             fontWeight: FontWeight.bold,
-            color: isTotal ? theme.colorScheme.primary : theme.colorScheme.onSurface,
+            color: isTotal
+                ? theme.colorScheme.primary
+                : theme.colorScheme.onSurface,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),

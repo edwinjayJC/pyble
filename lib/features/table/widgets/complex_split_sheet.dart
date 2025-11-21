@@ -156,7 +156,9 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                 children: [
                   Icon(
                     allSelected ? Icons.check_circle : Icons.circle_outlined,
-                    color: allSelected ? colorScheme.primary : theme.dividerColor,
+                    color: allSelected
+                        ? colorScheme.primary
+                        : theme.dividerColor,
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -179,7 +181,9 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
               itemCount: widget.participants.length,
               itemBuilder: (context, index) {
                 final participant = widget.participants[index];
-                final isSelected = _selectedUserIds.contains(participant.userId);
+                final isSelected = _selectedUserIds.contains(
+                  participant.userId,
+                );
 
                 return _buildParticipantRow(context, participant, isSelected);
               },
@@ -210,15 +214,20 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                       // FIX: Use primary with opacity for tint
                       color: colorScheme.primary.withOpacity(0.1),
                       borderRadius: AppRadius.allMd,
-                      border: Border.all(color: colorScheme.primary.withOpacity(0.2)),
+                      border: Border.all(
+                        color: colorScheme.primary.withOpacity(0.2),
+                      ),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.pie_chart,
-                                size: 16, color: colorScheme.primary),
+                            Icon(
+                              Icons.pie_chart,
+                              size: 16,
+                              color: colorScheme.primary,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               '${_selectedUserIds.length} people',
@@ -261,9 +270,9 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                         onPressed: _selectedUserIds.isEmpty
                             ? null
                             : () {
-                          widget.onSplit(_selectedUserIds.toList());
-                          Navigator.pop(context);
-                        },
+                                widget.onSplit(_selectedUserIds.toList());
+                                Navigator.pop(context);
+                              },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: colorScheme.primary,
                           foregroundColor: colorScheme.onPrimary,
@@ -282,7 +291,11 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
     );
   }
 
-  Widget _buildParticipantRow(BuildContext context, Participant participant, bool isSelected) {
+  Widget _buildParticipantRow(
+    BuildContext context,
+    Participant participant,
+    bool isSelected,
+  ) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
@@ -296,7 +309,9 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             // FIX: Adaptive selection color
-            color: isSelected ? colorScheme.primary.withOpacity(0.1) : colorScheme.surface,
+            color: isSelected
+                ? colorScheme.primary.withOpacity(0.1)
+                : colorScheme.surface,
             borderRadius: AppRadius.allMd,
             border: Border.all(
               color: isSelected ? colorScheme.primary : theme.dividerColor,
@@ -313,15 +328,19 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                     backgroundImage: participant.avatarUrl != null
                         ? NetworkImage(participant.avatarUrl!)
                         : null,
-                    backgroundColor: isSelected ? colorScheme.surface : theme.dividerColor,
+                    backgroundColor: isSelected
+                        ? colorScheme.surface
+                        : theme.dividerColor,
                     child: participant.avatarUrl == null
                         ? Text(
-                      participant.initials,
-                      style: TextStyle(
-                        color: isSelected ? colorScheme.primary : colorScheme.onSurface,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
+                            participant.initials,
+                            style: TextStyle(
+                              color: isSelected
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurface,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
                         : null,
                   ),
                   if (isSelected)
@@ -335,9 +354,9 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                         ),
                         padding: const EdgeInsets.all(2),
                         child: Icon(
-                            Icons.check,
-                            size: 10,
-                            color: colorScheme.onPrimary
+                          Icons.check,
+                          size: 10,
+                          color: colorScheme.onPrimary,
                         ),
                       ),
                     ),
@@ -351,8 +370,12 @@ class _ComplexSplitSheetState extends State<ComplexSplitSheet> {
                   participant.displayName,
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected ? colorScheme.primary : colorScheme.onSurface,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : colorScheme.onSurface,
                   ),
                 ),
               ),

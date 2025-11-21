@@ -49,18 +49,47 @@ class AppTheme {
       ),
 
       // Text Theme
-      textTheme: baseTextTheme.copyWith(
-        displayLarge: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.darkFig, letterSpacing: -0.5),
-        headlineLarge: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.darkFig),
-        headlineMedium: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.darkFig),
-        bodyLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.normal, color: AppColors.darkFig),
-        bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal, color: AppColors.darkFig),
-        labelLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.darkFig),
-        bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.darkFig, letterSpacing: 0.2),
-      ).apply(
-        bodyColor: AppColors.darkFig,
-        displayColor: AppColors.darkFig,
-      ),
+      textTheme: baseTextTheme
+          .copyWith(
+            displayLarge: GoogleFonts.inter(
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkFig,
+              letterSpacing: -0.5,
+            ),
+            headlineLarge: GoogleFonts.inter(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkFig,
+            ),
+            headlineMedium: GoogleFonts.inter(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkFig,
+            ),
+            bodyLarge: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.normal,
+              color: AppColors.darkFig,
+            ),
+            bodyMedium: GoogleFonts.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.normal,
+              color: AppColors.darkFig,
+            ),
+            labelLarge: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.darkFig,
+            ),
+            bodySmall: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.darkFig,
+              letterSpacing: 0.2,
+            ),
+          )
+          .apply(bodyColor: AppColors.darkFig, displayColor: AppColors.darkFig),
 
       // Button Themes
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -70,38 +99,49 @@ class AppTheme {
           minimumSize: const Size(0, 52),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
-          textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
           elevation: 1,
-          shadowColor: AppColors.deepBerry.withOpacity(0.2), // Fixed typo: withValues -> withOpacity
+          shadowColor: AppColors.deepBerry.withOpacity(
+            0.2,
+          ), // Fixed typo: withValues -> withOpacity
           disabledBackgroundColor: AppColors.paleGray,
           disabledForegroundColor: AppColors.disabledText,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.deepBerry,
-          minimumSize: const Size(0, 52),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
-          textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-        ).copyWith(
-          side: WidgetStateProperty.resolveWith<BorderSide?>(
-                (Set<WidgetState> states) {
-              if (states.contains(WidgetState.disabled)) {
-                return const BorderSide(color: AppColors.paleGray, width: 2);
-              }
-              return const BorderSide(color: AppColors.deepBerry, width: 2);
-            },
-          ),
-          foregroundColor: WidgetStateProperty.resolveWith<Color?>(
-                (Set<WidgetState> states) {
-              if (states.contains(WidgetState.disabled)) {
-                return AppColors.disabledText;
-              }
-              return AppColors.deepBerry;
-            },
-          ),
-        ),
+        style:
+            OutlinedButton.styleFrom(
+              foregroundColor: AppColors.deepBerry,
+              minimumSize: const Size(0, 52),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.allMd,
+              ),
+              textStyle: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ).copyWith(
+              side: WidgetStateProperty.resolveWith<BorderSide?>((
+                Set<WidgetState> states,
+              ) {
+                if (states.contains(WidgetState.disabled)) {
+                  return const BorderSide(color: AppColors.paleGray, width: 2);
+                }
+                return const BorderSide(color: AppColors.deepBerry, width: 2);
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+                Set<WidgetState> states,
+              ) {
+                if (states.contains(WidgetState.disabled)) {
+                  return AppColors.disabledText;
+                }
+                return AppColors.deepBerry;
+              }),
+            ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -181,7 +221,8 @@ class AppTheme {
         surface: AppColors.darkSurface, // Ink
         background: AppColors.darkBackground, // Dark Plum
         error: AppColors.brightWarmSpice,
-        onPrimary: AppColors.darkPlum, // Dark text on bright buttons is easier to read
+        onPrimary:
+            AppColors.darkPlum, // Dark text on bright buttons is easier to read
         onSecondary: AppColors.darkPlum,
         onSurface: AppColors.darkTextPrimary,
         onBackground: AppColors.darkTextPrimary,
@@ -189,7 +230,6 @@ class AppTheme {
       ),
 
       scaffoldBackgroundColor: AppColors.darkBackground, // Dark Plum (#1C0F16)
-
       // AppBar Theme
       appBarTheme: AppBarTheme(
         backgroundColor: AppColors.darkBackground, // Blend with background
@@ -206,24 +246,58 @@ class AppTheme {
 
       // Text Theme
       textTheme: baseTextTheme.copyWith(
-        displayLarge: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.darkTextPrimary, letterSpacing: -0.5),
-        headlineLarge: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
-        headlineMedium: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
-        bodyLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.normal, color: AppColors.darkTextPrimary),
-        bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal, color: AppColors.darkTextSecondary),
-        labelLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.darkTextPrimary),
-        bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.darkTextSecondary, letterSpacing: 0.2),
+        displayLarge: GoogleFonts.inter(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: AppColors.darkTextPrimary,
+          letterSpacing: -0.5,
+        ),
+        headlineLarge: GoogleFonts.inter(
+          fontSize: 24,
+          fontWeight: FontWeight.w600,
+          color: AppColors.darkTextPrimary,
+        ),
+        headlineMedium: GoogleFonts.inter(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          color: AppColors.darkTextPrimary,
+        ),
+        bodyLarge: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.normal,
+          color: AppColors.darkTextPrimary,
+        ),
+        bodyMedium: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.normal,
+          color: AppColors.darkTextSecondary,
+        ),
+        labelLarge: GoogleFonts.inter(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          color: AppColors.darkTextPrimary,
+        ),
+        bodySmall: GoogleFonts.inter(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: AppColors.darkTextSecondary,
+          letterSpacing: 0.2,
+        ),
       ),
 
       // Button Themes
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.brightBerry,
-          foregroundColor: AppColors.darkPlum, // Black/Plum text on Neon Pink button = High Legibility
+          foregroundColor: AppColors
+              .darkPlum, // Black/Plum text on Neon Pink button = High Legibility
           minimumSize: const Size(0, 52),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
-          textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
+          textStyle: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
           elevation: 0,
           disabledBackgroundColor: AppColors.darkSurface,
           disabledForegroundColor: AppColors.darkTextDisabled,
@@ -232,30 +306,42 @@ class AppTheme {
 
       // Outlined Button (Needs high contrast borders in dark mode)
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.brightBerry,
-          minimumSize: const Size(0, 52),
-          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-          shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
-          textStyle: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600),
-        ).copyWith(
-          side: WidgetStateProperty.resolveWith<BorderSide?>(
-                (Set<WidgetState> states) {
-              if (states.contains(WidgetState.disabled)) {
-                return const BorderSide(color: AppColors.darkBorder, width: 1);
-              }
-              return const BorderSide(color: AppColors.brightBerry, width: 1.5);
-            },
-          ),
-          foregroundColor: WidgetStateProperty.resolveWith<Color?>(
-                (Set<WidgetState> states) {
-              if (states.contains(WidgetState.disabled)) {
-                return AppColors.darkTextDisabled;
-              }
-              return AppColors.brightBerry;
-            },
-          ),
-        ),
+        style:
+            OutlinedButton.styleFrom(
+              foregroundColor: AppColors.brightBerry,
+              minimumSize: const Size(0, 52),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+              shape: const RoundedRectangleBorder(
+                borderRadius: AppRadius.allMd,
+              ),
+              textStyle: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ).copyWith(
+              side: WidgetStateProperty.resolveWith<BorderSide?>((
+                Set<WidgetState> states,
+              ) {
+                if (states.contains(WidgetState.disabled)) {
+                  return const BorderSide(
+                    color: AppColors.darkBorder,
+                    width: 1,
+                  );
+                }
+                return const BorderSide(
+                  color: AppColors.brightBerry,
+                  width: 1.5,
+                );
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith<Color?>((
+                Set<WidgetState> states,
+              ) {
+                if (states.contains(WidgetState.disabled)) {
+                  return AppColors.darkTextDisabled;
+                }
+                return AppColors.brightBerry;
+              }),
+            ),
       ),
 
       // Input Decoration (Subtle borders, clear fill)

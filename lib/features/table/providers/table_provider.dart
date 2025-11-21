@@ -17,8 +17,8 @@ final tableRepositoryProvider = Provider<TableRepository>((ref) {
 // Current active table state
 final currentTableProvider =
     AsyncNotifierProvider<CurrentTableNotifier, TableData?>(() {
-  return CurrentTableNotifier();
-});
+      return CurrentTableNotifier();
+    });
 
 class CurrentTableNotifier extends AsyncNotifier<TableData?> {
   Timer? _pollingTimer;
@@ -37,11 +37,7 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
 
     try {
       final table = await repository.createTable(title: title);
-      final tableData = TableData(
-        table: table,
-        participants: [],
-        items: [],
-      );
+      final tableData = TableData(table: table, participants: [], items: []);
       state = AsyncValue.data(tableData);
       _startPolling(table.id);
     } catch (e, st) {
@@ -85,11 +81,7 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
 
     try {
       final table = await repository.joinTableByCode(code);
-      final tableData = TableData(
-        table: table,
-        participants: [],
-        items: [],
-      );
+      final tableData = TableData(table: table, participants: [], items: []);
       state = AsyncValue.data(tableData);
       _startPolling(table.id);
     } catch (e, st) {
@@ -114,14 +106,16 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
       );
 
       final updatedItems = [...currentData.items, newItem];
-      state = AsyncValue.data(TableData(
-        table: currentData.table,
-        participants: currentData.participants,
-        items: updatedItems,
-        subTotal: currentData.subTotal + price,
-        tax: currentData.tax,
-        tip: currentData.tip,
-      ));
+      state = AsyncValue.data(
+        TableData(
+          table: currentData.table,
+          participants: currentData.participants,
+          items: updatedItems,
+          subTotal: currentData.subTotal + price,
+          tax: currentData.tax,
+          tip: currentData.tip,
+        ),
+      );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
     }
@@ -214,14 +208,16 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
         return participant.copyWith(totalOwed: totalOwed);
       }).toList();
 
-      state = AsyncValue.data(TableData(
-        table: updatedTable,
-        participants: updatedParticipants,
-        items: currentData.items,
-        subTotal: currentData.subTotal,
-        tax: currentData.tax,
-        tip: currentData.tip,
-      ));
+      state = AsyncValue.data(
+        TableData(
+          table: updatedTable,
+          participants: updatedParticipants,
+          items: currentData.items,
+          subTotal: currentData.subTotal,
+          tax: currentData.tax,
+          tip: currentData.tip,
+        ),
+      );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       rethrow;
@@ -237,14 +233,16 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     try {
       final updatedTable = await repository.unlockTable(currentData.table.id);
 
-      state = AsyncValue.data(TableData(
-        table: updatedTable,
-        participants: currentData.participants,
-        items: currentData.items,
-        subTotal: currentData.subTotal,
-        tax: currentData.tax,
-        tip: currentData.tip,
-      ));
+      state = AsyncValue.data(
+        TableData(
+          table: updatedTable,
+          participants: currentData.participants,
+          items: currentData.items,
+          subTotal: currentData.subTotal,
+          tax: currentData.tax,
+          tip: currentData.tip,
+        ),
+      );
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       rethrow;
@@ -267,8 +265,9 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
         final alreadyClaimed = item.isClaimedByUser(currentUser.id);
         if (alreadyClaimed) {
           // Remove claim
-          final newClaimedBy =
-              item.claimedBy.where((c) => c.userId != currentUser.id).toList();
+          final newClaimedBy = item.claimedBy
+              .where((c) => c.userId != currentUser.id)
+              .toList();
           return item.copyWith(claimedBy: newClaimedBy);
         } else {
           // Add claim
@@ -411,14 +410,16 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
 
     try {
       final updatedTable = await repository.settleTable(currentData.table.id);
-      state = AsyncValue.data(TableData(
-        table: updatedTable,
-        participants: currentData.participants,
-        items: currentData.items,
-        subTotal: currentData.subTotal,
-        tax: currentData.tax,
-        tip: currentData.tip,
-      ));
+      state = AsyncValue.data(
+        TableData(
+          table: updatedTable,
+          participants: currentData.participants,
+          items: currentData.items,
+          subTotal: currentData.subTotal,
+          tax: currentData.tax,
+          tip: currentData.tip,
+        ),
+      );
       stopPolling(); // Stop polling once table is settled
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -543,13 +544,13 @@ final isHostOfActiveTableProvider = FutureProvider<bool>((ref) async {
 // Provider to fetch pending split requests for the current user
 final pendingSplitRequestsProvider =
     FutureProvider.family<List<SplitRequest>, String>((ref, tableId) async {
-  final repository = ref.watch(tableRepositoryProvider);
-  return await repository.getSplitRequests(tableId);
-});
+      final repository = ref.watch(tableRepositoryProvider);
+      return await repository.getSplitRequests(tableId);
+    });
 
 // Provider to get the count of pending split requests
 final pendingSplitRequestsCountProvider =
     Provider.family<AsyncValue<int>, String>((ref, tableId) {
-  final requestsAsync = ref.watch(pendingSplitRequestsProvider(tableId));
-  return requestsAsync.whenData((requests) => requests.length);
-});
+      final requestsAsync = ref.watch(pendingSplitRequestsProvider(tableId));
+      return requestsAsync.whenData((requests) => requests.length);
+    });

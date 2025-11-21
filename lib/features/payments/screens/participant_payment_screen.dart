@@ -14,8 +14,9 @@ import '../../../core/providers/supabase_provider.dart';
 // Feature Imports
 import '../../table/providers/table_provider.dart';
 import '../../table/models/participant.dart';
-import '../../table/models/table_session.dart'; // For PaymentStatus
-import '../repository/payment_repository.dart';
+import '../models/payment_method.dart';
+import '../providers/payment_methods_provider.dart';
+import 'payment_method_webview_screen.dart';
 
 class ParticipantPaymentScreen extends ConsumerStatefulWidget {
   final String tableId;
@@ -30,7 +31,7 @@ class ParticipantPaymentScreen extends ConsumerStatefulWidget {
 class _ParticipantPaymentScreenState
     extends ConsumerState<ParticipantPaymentScreen> {
   bool _isProcessing = false;
-  Timer? _pollingTimer;
+  PaymentMethod? _selectedMethod;
 
   @override
   void initState() {
@@ -49,6 +50,7 @@ class _ParticipantPaymentScreenState
     // Hard refresh to ensure status is accurate
     ref.invalidate(currentTableProvider);
     await ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
+    await ref.read(paymentMethodsProvider.notifier).refresh();
   }
 
   @override
@@ -56,11 +58,26 @@ class _ParticipantPaymentScreenState
     final tableAsync = ref.watch(currentTableProvider);
     final currentUser = ref.watch(currentUserProvider);
     final theme = Theme.of(context);
+    final paymentMethodsAsync = ref.watch(paymentMethodsProvider);
+    paymentMethodsAsync.whenData((methods) {
+      if (_selectedMethod == null && methods.isNotEmpty) {
+        _selectedMethod = methods.firstWhere(
+          (m) => m.isDefault,
+          orElse: () => methods.first,
+        );
+      }
+    });
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Settle Up', style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
+        title: Text(
+          'Settle Up',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
@@ -83,7 +100,7 @@ class _ParticipantPaymentScreenState
             }
 
             final me = tableData.participants.firstWhere(
-                  (p) => p.userId == currentUser.id,
+              (p) => p.userId == currentUser.id,
               orElse: () => Participant(
                 id: 'unknown',
                 tableId: '',
@@ -98,20 +115,23 @@ class _ParticipantPaymentScreenState
               orElse: () => me,
             );
 
-            return _buildScreenContent(context, me, host);
+            return _buildScreenContent(context, me, host, paymentMethodsAsync);
           },
-          loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+          loading: () => Center(
+            child: CircularProgressIndicator(color: theme.colorScheme.primary),
+          ),
           error: (error, stack) => Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: theme.colorScheme.error,
+                ),
                 const SizedBox(height: AppSpacing.md),
                 Text('Error: $error'),
-                TextButton(
-                  onPressed: _refreshData,
-                  child: const Text('Retry'),
-                ),
+                TextButton(onPressed: _refreshData, child: const Text('Retry')),
               ],
             ),
           ),
@@ -124,6 +144,7 @@ class _ParticipantPaymentScreenState
       BuildContext context,
       Participant me,
       Participant host,
+      AsyncValue<List<PaymentMethod>> methodsAsync,
       ) {
     // 1. SETTLED
     if (me.paymentStatus == PaymentStatus.paid) {
@@ -141,7 +162,7 @@ class _ParticipantPaymentScreenState
     }
 
     // 4. OWING
-    return _buildOwingView(context, me, host);
+    return _buildOwingView(context, me, host, methodsAsync);
   }
 
   // === VIEW 1: SETTLED ===
@@ -159,7 +180,11 @@ class _ParticipantPaymentScreenState
                 color: AppColors.lightGreen,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check, size: 64, color: AppColors.lushGreen),
+              child: const Icon(
+                Icons.check,
+                size: 64,
+                color: AppColors.lushGreen,
+              ),
             ),
             const SizedBox(height: AppSpacing.xl),
             Text(
@@ -172,7 +197,9 @@ class _ParticipantPaymentScreenState
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Payment of ${AppConstants.currencySymbol}${me.totalOwed.toStringAsFixed(2)} confirmed',
-              style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.7)),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.xl),
@@ -187,7 +214,11 @@ class _ParticipantPaymentScreenState
   }
 
   // === VIEW 2: PENDING ===
-  Widget _buildPendingView(BuildContext context, Participant me, Participant host) {
+  Widget _buildPendingView(
+    BuildContext context,
+    Participant me,
+    Participant host,
+  ) {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
@@ -201,7 +232,11 @@ class _ParticipantPaymentScreenState
                 color: AppColors.lightWarmSpice,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.hourglass_top, size: 48, color: AppColors.warmSpice),
+              child: const Icon(
+                Icons.hourglass_top,
+                size: 48,
+                color: AppColors.warmSpice,
+              ),
             ),
             const SizedBox(height: AppSpacing.xl),
             Text(
@@ -228,7 +263,11 @@ class _ParticipantPaymentScreenState
   }
 
   // === VIEW 2B: PENDING DIRECT (Paid Restaurant Directly) ===
-  Widget _buildPendingDirectView(BuildContext context, Participant me, Participant host) {
+  Widget _buildPendingDirectView(
+    BuildContext context,
+    Participant me,
+    Participant host,
+  ) {
     final theme = Theme.of(context);
     return Center(
       child: Padding(
@@ -242,7 +281,11 @@ class _ParticipantPaymentScreenState
                 color: AppColors.lightWarmSpice,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.store, size: 48, color: AppColors.warmSpice),
+              child: const Icon(
+                Icons.store,
+                size: 48,
+                color: AppColors.warmSpice,
+              ),
             ),
             const SizedBox(height: AppSpacing.xl),
             Text(
@@ -270,15 +313,17 @@ class _ParticipantPaymentScreenState
 
   // === VIEW 3: OWING (THE SELECTION SCREEN) ===
   Widget _buildOwingView(
-      BuildContext context,
-      Participant me,
-      Participant host,
-      ) {
+    BuildContext context,
+    Participant me,
+    Participant host,
+    AsyncValue<List<PaymentMethod>> methodsAsync,
+  ) {
     final theme = Theme.of(context);
     final amount = me.totalOwed;
     // UPDATE: Fee dropped to 2%
     final fee = amount * 0.02;
     final totalWithFee = amount + fee;
+    final methods = methodsAsync.valueOrNull ?? [];
 
     return SingleChildScrollView(
       padding: AppSpacing.screenPadding,
@@ -306,10 +351,10 @@ class _ParticipantPaymentScreenState
                 Text(
                   'YOU OWE',
                   style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface.withOpacity(0.5),
-                      letterSpacing: 1.5
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface.withOpacity(0.5),
+                    letterSpacing: 1.5,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -323,7 +368,10 @@ class _ParticipantPaymentScreenState
                 ),
                 const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(20),
@@ -332,9 +380,22 @@ class _ParticipantPaymentScreenState
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text("To: ", style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 12)),
+                      Text(
+                        "To: ",
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 12,
+                        ),
+                      ),
                       const SizedBox(width: 4),
-                      Text(host.displayName, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface, fontSize: 12)),
+                      Text(
+                        host.displayName,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSurface,
+                          fontSize: 12,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -345,17 +406,22 @@ class _ParticipantPaymentScreenState
           const SizedBox(height: 32),
           Text(
             'Select Payment Method',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
+          const SizedBox(height: 8),
+          _buildMethodSelector(context, methodsAsync, methods),
           const SizedBox(height: 16),
 
           // 2. OPTION A: PAY IN APP (The "Happy Path")
           // We visually prioritize this to encourage adoption despite the (small) fee.
           _buildInAppPaymentOption(
-              context,
-              amount: amount,
-              fee: fee,
-              total: totalWithFee
+            context,
+            diner: me,
+            amount: amount,
+            fee: fee,
+            total: totalWithFee,
           ),
 
           const SizedBox(height: 16),
@@ -374,7 +440,13 @@ class _ParticipantPaymentScreenState
     );
   }
 
-  Widget _buildInAppPaymentOption(BuildContext context, {required double amount, required double fee, required double total}) {
+  Widget _buildInAppPaymentOption(
+    BuildContext context, {
+    required Participant diner,
+    required double amount,
+    required double fee,
+    required double total,
+  }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -386,7 +458,9 @@ class _ParticipantPaymentScreenState
         border: Border.all(color: theme.colorScheme.primary, width: 1.5),
       ),
       child: InkWell(
-        onTap: _isProcessing ? null : () => _initiateInAppPayment(amount),
+        onTap: _isProcessing
+            ? null
+            : () => _initiateInAppPayment(diner: diner, chargeAmount: total),
         borderRadius: AppRadius.allMd,
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -401,30 +475,40 @@ class _ParticipantPaymentScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                            "Instant Pay",
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary
-                            )
+                          "Instant Pay",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                          ),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                            "Secure. Instant. Done.",
-                            style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.7))
+                          "Secure. Instant. Done.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
                         ),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.primary,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                        "RECOMMENDED",
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.onPrimary)
+                      "RECOMMENDED",
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onPrimary,
+                      ),
                     ),
                   ),
                 ],
@@ -436,15 +520,29 @@ class _ParticipantPaymentScreenState
 
               // Transparent Math
               _buildMathRow(context, "Bill Amount", amount),
-              _buildMathRow(context, "Service Fee (2%)", fee), // Highlighting the low fee
+              _buildMathRow(
+                context,
+                "Service Fee (2%)",
+                fee,
+              ), // Highlighting the low fee
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Total Charge", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
                   Text(
-                      '${AppConstants.currencySymbol}${total.toStringAsFixed(2)}',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: theme.colorScheme.primary)
+                    "Total Charge",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  Text(
+                    '${AppConstants.currencySymbol}${total.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
                 ],
               ),
@@ -455,7 +553,83 @@ class _ParticipantPaymentScreenState
     );
   }
 
-  Widget _buildManualPaymentOption(BuildContext context, Participant host, Participant me) {
+  Widget _buildMethodSelector(
+    BuildContext context,
+    AsyncValue<List<PaymentMethod>> methodsAsync,
+    List<PaymentMethod> methods,
+  ) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: AppRadius.allMd,
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (methodsAsync.isLoading)
+            const LinearProgressIndicator(minHeight: 2),
+          if (methods.isEmpty && !methodsAsync.isLoading)
+            Text(
+              'No saved methods. Add a card or pay once via Paystack.',
+              style: theme.textTheme.bodySmall,
+            ),
+          if (methods.isNotEmpty)
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                _selectedMethod != null
+                    ? _formatMethod(_selectedMethod!)
+                    : 'Choose a method',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: _selectedMethod?.label != null
+                  ? Text(_selectedMethod!.label!)
+                  : null,
+              trailing: TextButton(
+                onPressed: methodsAsync.isLoading
+                    ? null
+                    : () => _showPaymentMethodSheet(context, methods),
+                child: const Text('Change'),
+              ),
+            ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(
+                icon: const Icon(Icons.add_card),
+                label: const Text('Add card'),
+                onPressed: () => _startAddCardFlow(context),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() => _selectedMethod = null);
+                },
+                child: const Text('Other ways via Paystack'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatMethod(PaymentMethod method) {
+    final brand = method.brand ?? method.provider.apiValue.toUpperCase();
+    final suffix = method.last4 != null ? '•••• ${method.last4}' : '';
+    return '$brand $suffix';
+  }
+
+  Widget _buildManualPaymentOption(
+    BuildContext context,
+    Participant host,
+    Participant me,
+  ) {
     final theme = Theme.of(context);
 
     return Container(
@@ -471,20 +645,31 @@ class _ParticipantPaymentScreenState
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              Icon(Icons.handshake_outlined, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 24),
+              Icon(
+                Icons.handshake_outlined,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                        "Pay Outside App",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)
+                      "Pay Outside App",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                        "Cash, EFT, or Wallet. Requires host confirmation.",
-                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))
+                      "Cash, EFT, or Wallet. Requires host confirmation.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      ),
                     ),
                   ],
                 ),
@@ -497,7 +682,11 @@ class _ParticipantPaymentScreenState
     );
   }
 
-  Widget _buildDirectPaymentOption(BuildContext context, Participant host, Participant me) {
+  Widget _buildDirectPaymentOption(
+    BuildContext context,
+    Participant host,
+    Participant me,
+  ) {
     final theme = Theme.of(context);
 
     return Container(
@@ -513,20 +702,31 @@ class _ParticipantPaymentScreenState
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              Icon(Icons.store_outlined, color: theme.colorScheme.onSurface.withOpacity(0.6), size: 24),
+              Icon(
+                Icons.store_outlined,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                        "Paid Restaurant Directly",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface)
+                      "Paid Restaurant Directly",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                        "I paid my share at the register. No reimbursement needed.",
-                        style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.5))
+                      "I paid my share at the register. No reimbursement needed.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
+                      ),
                     ),
                   ],
                 ),
@@ -539,6 +739,77 @@ class _ParticipantPaymentScreenState
     );
   }
 
+  Future<void> _showPaymentMethodSheet(
+    BuildContext context,
+    List<PaymentMethod> methods,
+  ) async {
+    final selected = await showModalBottomSheet<dynamic>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(AppSpacing.md),
+                child: Text(
+                  'Choose a method',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+              ...methods.map(
+                (m) => ListTile(
+                  leading: const Icon(Icons.credit_card),
+                  title: Text(_formatMethod(m)),
+                  subtitle: m.label != null ? Text(m.label!) : null,
+                  trailing: m.isDefault
+                      ? const Chip(label: Text('Default'))
+                      : null,
+                  onTap: () => Navigator.pop(context, m),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.add),
+                title: const Text('Add new card'),
+                onTap: () => Navigator.pop(context, const _AddMethodPlaceholder()),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (selected is PaymentMethod) {
+      setState(() {
+        _selectedMethod = selected;
+      });
+    } else if (selected is _AddMethodPlaceholder) {
+      await _startAddCardFlow(context);
+    }
+  }
+
+  Future<void> _startAddCardFlow(BuildContext context) async {
+    try {
+      final resp = await ref
+          .read(paymentMethodsProvider.notifier)
+          .addCard(makeDefault: false);
+      if (!mounted) return;
+      await context.push(
+        PaymentMethodWebviewScreen.routePath,
+        extra: resp.redirectUrl,
+      );
+      await ref.read(paymentMethodsProvider.notifier).refresh();
+    } catch (e) {
+      if (mounted) {
+        _showError(e.toString());
+      }
+    }
+  }
+
   Widget _buildMathRow(BuildContext context, String label, double value) {
     final theme = Theme.of(context);
     return Padding(
@@ -546,23 +817,45 @@ class _ParticipantPaymentScreenState
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6))),
           Text(
-              '${AppConstants.currencySymbol}${value.toStringAsFixed(2)}',
-              style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurface.withOpacity(0.6))
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurface.withOpacity(0.6),
+            ),
+          ),
+          Text(
+            '${AppConstants.currencySymbol}${value.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurface.withOpacity(0.6),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _initiateInAppPayment(double amount) async {
+  Future<void> _initiateInAppPayment({
+    required Participant diner,
+    required double chargeAmount,
+  }) async {
+    final user = ref.read(currentUserProvider);
+    final email = user?.email;
+    if (email == null || email.isEmpty) {
+      _showError('Missing email address for Paystack checkout.');
+      return;
+    }
+
     setState(() => _isProcessing = true);
     try {
-      final paymentRepo = ref.read(paymentRepositoryProvider);
-      final response = await paymentRepo.initiatePayment(
+      final paystackService = ref.read(paystackPaymentServiceProvider);
+      final response = await paystackService.initializePayment(
         tableId: widget.tableId,
-        amount: amount,
+        dinerId: diner.id,
+        dinerEmail: email,
+        chargeAmountZar: chargeAmount,
+        paymentMethodId: _selectedMethod?.id,
       );
       if (mounted) {
         context.push('/payment-webview/${widget.tableId}', extra: response);
@@ -579,19 +872,28 @@ class _ParticipantPaymentScreenState
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Confirm Manual Payment", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text(
+                "Confirm Manual Payment",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               Text(
                 "Did you pay ${AppConstants.currencySymbol}${me.totalOwed.toStringAsFixed(2)} to ${host.displayName}?",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                style: TextStyle(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
               const SizedBox(height: 24),
               Row(
@@ -606,7 +908,9 @@ class _ParticipantPaymentScreenState
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.darkFig),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.darkFig,
+                      ),
                       child: const Text("Yes, I Paid"),
                     ),
                   ),
@@ -621,7 +925,9 @@ class _ParticipantPaymentScreenState
     if (confirmed == true) {
       setState(() => _isProcessing = true);
       try {
-        await ref.read(paymentRepositoryProvider).markPaidOutside(tableId: widget.tableId);
+        await ref
+            .read(paymentRepositoryProvider)
+            .markPaidOutside(tableId: widget.tableId);
         // Force refresh to see the pending state
         await _refreshData();
       } catch (e) {
@@ -637,26 +943,37 @@ class _ParticipantPaymentScreenState
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text("Confirm Direct Payment", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const Text(
+                "Confirm Direct Payment",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               Text(
                 "Did you pay ${AppConstants.currencySymbol}${me.totalOwed.toStringAsFixed(2)} directly to the restaurant?",
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                style: TextStyle(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 "This means ${host.displayName} doesn't need to reimburse you.",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.5),
                   fontSize: 12,
                 ),
               ),
@@ -673,7 +990,9 @@ class _ParticipantPaymentScreenState
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () => Navigator.pop(context, true),
-                      style: ElevatedButton.styleFrom(backgroundColor: AppColors.darkFig),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.darkFig,
+                      ),
                       child: const Text("Yes, I Paid"),
                     ),
                   ),
@@ -688,7 +1007,9 @@ class _ParticipantPaymentScreenState
     if (confirmed == true) {
       setState(() => _isProcessing = true);
       try {
-        await ref.read(paymentRepositoryProvider).markPaidDirect(tableId: widget.tableId);
+        await ref
+            .read(paymentRepositoryProvider)
+            .markPaidDirect(tableId: widget.tableId);
         // Force refresh to see the pending state
         await _refreshData();
       } catch (e) {
@@ -701,7 +1022,14 @@ class _ParticipantPaymentScreenState
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Theme.of(context).colorScheme.error),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      ),
     );
   }
+}
+
+class _AddMethodPlaceholder {
+  const _AddMethodPlaceholder();
 }

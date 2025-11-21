@@ -12,7 +12,7 @@ class AppColors {
   // Dark Neutrals (Use these for backgrounds!)
   static const midnight = Color(0xFF0F080C); // Nearly black, hint of red
   static const darkPlum = Color(0xFF1C0F16); // Deep brownish-purple
-  static const ink = Color(0xFF2A1B24);      // Lighter purple-black
+  static const ink = Color(0xFF2A1B24); // Lighter purple-black
 
   // Text
   static const darkFig = Color(0xFF4A2C40);
@@ -39,13 +39,19 @@ class AppColors {
   static const darkSurface = ink;
 
   // Brighter accents for visibility on dark backgrounds
-  static const brightBerry = Color(0xFFFF4D8C); // Slightly punched up from E73A7B
+  static const brightBerry = Color(
+    0xFFFF4D8C,
+  ); // Slightly punched up from E73A7B
   static const brightGreen = Color(0xFF00E0A3);
   static const brightWarmSpice = Color(0xFFFF8A4D);
 
   // Dark Theme Text
-  static const darkTextPrimary = Color(0xFFF9F6F2); // Light Crust (Warmer than pure white)
+  static const darkTextPrimary = Color(
+    0xFFF9F6F2,
+  ); // Light Crust (Warmer than pure white)
   static const darkTextSecondary = Color(0xFFAC8BA0); // Dusk (Good subtext)
   static const darkTextDisabled = Color(0x66F9F6F2);
-  static const darkBorder = Color(0xFF4A2C40); // Dark Fig makes a great subtle border in dark mode
+  static const darkBorder = Color(
+    0xFF4A2C40,
+  ); // Dark Fig makes a great subtle border in dark mode
 }

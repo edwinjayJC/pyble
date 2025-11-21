@@ -41,7 +41,6 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     final tableDataAsync = ref.watch(currentTableProvider);
@@ -51,8 +50,13 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
       // FIX: Adapt background (Light Crust vs Dark Plum)
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('Invite Friends',
-            style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+        title: Text(
+          'Invite Friends',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onSurface,
+          ),
+        ),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
@@ -62,13 +66,17 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
         ),
       ),
       body: tableDataAsync.when(
-        loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: theme.colorScheme.primary),
+        ),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (tableData) {
-          if (tableData == null) return const Center(child: Text("Table not found"));
+          if (tableData == null)
+            return const Center(child: Text("Table not found"));
 
           final tableCode = tableData.table.code;
-          final joinLink = '${AppConstants.appScheme}://${AppConstants.joinPath}?code=$tableCode';
+          final joinLink =
+              '${AppConstants.appScheme}://${AppConstants.joinPath}?code=$tableCode';
           final participants = tableData.participants;
 
           return SafeArea(
@@ -215,16 +223,30 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
                   ),
                 );
               },
-              icon: Icon(Icons.copy, size: 18, color: theme.colorScheme.primary),
-              label: Text("Copy Code", style: TextStyle(color: theme.colorScheme.primary)),
+              icon: Icon(
+                Icons.copy,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              label: Text(
+                "Copy Code",
+                style: TextStyle(color: theme.colorScheme.primary),
+              ),
             ),
             Container(height: 20, width: 1, color: theme.dividerColor),
             TextButton.icon(
               onPressed: () {
                 Share.share('Join my Pyble table! Code: $code\nLink: $link');
               },
-              icon: Icon(Icons.share, size: 18, color: theme.colorScheme.primary),
-              label: Text("Share Link", style: TextStyle(color: theme.colorScheme.primary)),
+              icon: Icon(
+                Icons.share,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              label: Text(
+                "Share Link",
+                style: TextStyle(color: theme.colorScheme.primary),
+              ),
             ),
           ],
         ),
@@ -232,7 +254,10 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
     );
   }
 
-  Widget _buildLobbySection(BuildContext context, List<Participant> participants) {
+  Widget _buildLobbySection(
+    BuildContext context,
+    List<Participant> participants,
+  ) {
     final theme = Theme.of(context);
 
     return Column(
@@ -240,7 +265,11 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
       children: [
         Row(
           children: [
-            Icon(Icons.people_outline, size: 20, color: theme.colorScheme.onSurface),
+            Icon(
+              Icons.people_outline,
+              size: 20,
+              color: theme.colorScheme.onSurface,
+            ),
             const SizedBox(width: 8),
             Text(
               "IN THE LOBBY (${participants.length})",
@@ -256,31 +285,40 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
         const SizedBox(height: 16),
 
         if (participants.isEmpty)
-        // Empty State
+          // Empty State
           Center(
             child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 children: [
                   SizedBox(
-                    width: 24, height: 24,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: theme.disabledColor),
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: theme.disabledColor,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     "Waiting for friends...",
-                    style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.4), fontStyle: FontStyle.italic),
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withOpacity(0.4),
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ),
             ),
           )
         else
-        // The Avatar Cluster (Wrap)
+          // The Avatar Cluster (Wrap)
           Wrap(
             spacing: 12,
             runSpacing: 12,
-            children: participants.map((p) => _buildLobbyAvatar(context, p)).toList(),
+            children: participants
+                .map((p) => _buildLobbyAvatar(context, p))
+                .toList(),
           ),
       ],
     );
@@ -296,22 +334,37 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
           padding: const EdgeInsets.all(3),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.lushGreen, width: 2), // Green ring = Joined
+            border: Border.all(
+              color: AppColors.lushGreen,
+              width: 2,
+            ), // Green ring = Joined
           ),
           child: CircleAvatar(
             radius: 24,
             // FIX: Use Theme for avatar bg
             backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-            backgroundImage: p.avatarUrl != null ? NetworkImage(p.avatarUrl!) : null,
+            backgroundImage: p.avatarUrl != null
+                ? NetworkImage(p.avatarUrl!)
+                : null,
             child: p.avatarUrl == null
-                ? Text(p.initials, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.primary))
+                ? Text(
+                    p.initials,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.primary,
+                    ),
+                  )
                 : null,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           p.displayName.split(' ').first, // First name only for layout
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: theme.colorScheme.onSurface),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: theme.colorScheme.onSurface,
+          ),
         ),
       ],
     );
@@ -328,9 +381,9 @@ class _HostInviteScreenState extends ConsumerState<HostInviteScreen> {
         color: theme.colorScheme.surface,
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5)
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
           ),
         ],
       ),

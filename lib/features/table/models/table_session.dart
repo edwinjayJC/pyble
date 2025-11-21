@@ -1,14 +1,30 @@
 enum TableStatus {
   claiming,
   collecting,
+  pendingPayments,
+  readyForHostSettlement,
+  open,
   settled,
   cancelled;
 
   factory TableStatus.fromString(String value) {
-    return TableStatus.values.firstWhere(
-      (e) => e.name == value,
-      orElse: () => TableStatus.claiming,
-    );
+    switch (value) {
+      case 'open':
+        return TableStatus.open;
+      case 'pending_payments':
+        return TableStatus.pendingPayments;
+      case 'ready_for_host_settlement':
+        return TableStatus.readyForHostSettlement;
+      case 'collecting':
+        return TableStatus.collecting;
+      case 'settled':
+        return TableStatus.settled;
+      case 'cancelled':
+        return TableStatus.cancelled;
+      case 'claiming':
+      default:
+        return TableStatus.claiming;
+    }
   }
 }
 
@@ -52,7 +68,7 @@ class TableSession {
       'id': id,
       'tableCode': code,
       'hostUserId': hostUserId,
-      'status': status.name,
+      'status': statusApiValue,
       'title': title,
       'createdAt': createdAt.toIso8601String(),
       'closedAt': closedAt?.toIso8601String(),
@@ -79,9 +95,28 @@ class TableSession {
     );
   }
 
+  // Mapping note: "open" maps to claiming, "pending_payments" to collecting,
+  // and "ready_for_host_settlement" captures the payout-ready state.
+  String get statusApiValue {
+    switch (status) {
+      case TableStatus.pendingPayments:
+        return 'pending_payments';
+      case TableStatus.readyForHostSettlement:
+        return 'ready_for_host_settlement';
+      case TableStatus.open:
+        return 'open';
+      default:
+        return status.name;
+    }
+  }
+
   bool get isHost => false; // Will be determined by provider
-  bool get isClaiming => status == TableStatus.claiming;
-  bool get isCollecting => status == TableStatus.collecting;
+  bool get isClaiming =>
+      status == TableStatus.claiming || status == TableStatus.open;
+  bool get isCollecting =>
+      status == TableStatus.collecting ||
+      status == TableStatus.pendingPayments ||
+      status == TableStatus.readyForHostSettlement;
+  bool get isReadyForPayout => status == TableStatus.readyForHostSettlement;
   bool get isSettled => status == TableStatus.settled;
 }
-
