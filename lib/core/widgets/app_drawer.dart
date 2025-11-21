@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pyble/features/auth/providers/user_profile_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Core Imports
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/constants/route_names.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/providers/supabase_provider.dart';
 
 class AppDrawer extends ConsumerWidget {
@@ -71,6 +73,15 @@ class AppDrawer extends ConsumerWidget {
                   onTap: () {
                     Navigator.pop(context);
                     context.push(RoutePaths.history);
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
+                  icon: Icons.school_outlined,
+                  label: "Tutorial",
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(RoutePaths.onboarding);
                   },
                 ),
                 _buildDrawerItem(
@@ -250,8 +261,16 @@ class AppDrawer extends ConsumerWidget {
     );
 
     if (confirm == true) {
-      await ref.read(supabaseClientProvider).auth.signOut();
+      final client = ref.read(supabaseClientProvider);
+      final currentUserId = client.auth.currentUser?.id;
+      await client.auth.signOut();
       ref.invalidate(userProfileProvider);
+      final prefs = await SharedPreferences.getInstance();
+      if (currentUserId != null) {
+        await prefs.remove('${AppConstants.tutorialSeenKey}_$currentUserId');
+      } else {
+        await prefs.remove(AppConstants.tutorialSeenKey);
+      }
 
       if (context.mounted) {
         context.go(RoutePaths.auth);

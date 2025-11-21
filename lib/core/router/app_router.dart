@@ -425,7 +425,15 @@ class SettingsScreen extends ConsumerWidget {
         const SnackBar(content: Text('Your account has been deleted.')),
       );
 
-      await ref.read(supabaseClientProvider).auth.signOut();
+      final client = ref.read(supabaseClientProvider);
+      final currentUserId = client.auth.currentUser?.id;
+      await client.auth.signOut();
+      final prefs = await SharedPreferences.getInstance();
+      if (currentUserId != null) {
+        await prefs.remove(_tutorialSeenKey(currentUserId));
+      } else {
+        await prefs.remove(AppConstants.tutorialSeenKey);
+      }
       if (!context.mounted) return;
       context.go(RoutePaths.auth);
     } catch (error) {
@@ -938,21 +946,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isVerifyRoute = state.matchedLocation == RoutePaths.verifyEmail;
       final isTermsRoute = state.matchedLocation == RoutePaths.terms;
 
-      // Check if tutorial has been seen
-      final prefs = await SharedPreferences.getInstance();
-      final tutorialSeen = prefs.getBool(AppConstants.tutorialSeenKey) ?? false;
-
-      if (!tutorialSeen &&
-          !isOnboardingRoute &&
-          !isVerifyRoute &&
-          !isSplashRoute) {
-        return RoutePaths.onboarding;
-      }
-
       // Not authenticated
       if (!isAuthenticated && !isSplashRoute) {
         if (isAuthRoute || isOnboardingRoute || isVerifyRoute) return null;
         return RoutePaths.auth;
+      }
+
+      // Show tutorial once per authenticated user
+      if (isAuthenticated && state.matchedLocation != RoutePaths.splash) {
+        final prefs = await SharedPreferences.getInstance();
+        final currentUserId = ref.read(currentUserProvider)?.id;
+        if (currentUserId != null) {
+          final tutorialKey = _tutorialSeenKey(currentUserId);
+          final tutorialSeen = prefs.getBool(tutorialKey) ?? false;
+
+          if (!tutorialSeen &&
+              !isOnboardingRoute &&
+              !isVerifyRoute &&
+              !isSplashRoute) {
+            return RoutePaths.onboarding;
+          }
+        }
       }
 
       // Authenticated but on auth route
@@ -962,7 +976,10 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // Check terms acceptance
       final profile = userProfile.valueOrNull;
-      if (profile != null && !profile.hasAcceptedTerms && !isTermsRoute) {
+      if (profile != null &&
+          !profile.hasAcceptedTerms &&
+          !isTermsRoute &&
+          !isOnboardingRoute) {
         return '${RoutePaths.terms}?requireAccept=true';
       }
 
@@ -1127,3 +1144,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+String _tutorialSeenKey(String userId) =>
+    '${AppConstants.tutorialSeenKey}_$userId';
