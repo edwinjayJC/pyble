@@ -19,8 +19,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Payment Methods')),
       body: methodsAsync.when(
         data: (methods) => _buildList(context, ref, methods),
-        loading: () =>
-            const Center(child: CircularProgressIndicator(color: AppColors.deepBerry)),
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.deepBerry),
+        ),
         error: (e, _) => Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -29,7 +30,8 @@ class PaymentMethodsScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
               Text('Unable to load methods: $e'),
               TextButton(
-                onPressed: () => ref.read(paymentMethodsProvider.notifier).refresh(),
+                onPressed: () =>
+                    ref.read(paymentMethodsProvider.notifier).refresh(),
                 child: const Text('Retry'),
               ),
             ],
@@ -37,15 +39,28 @@ class PaymentMethodsScreen extends ConsumerWidget {
         ),
       ),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.all(AppSpacing.md),
-        child: ElevatedButton.icon(
-          icon: const Icon(Icons.add_card),
-          label: const Text('Add payment method'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-            shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.md,
+            AppSpacing.sm,
+            AppSpacing.md,
+            AppSpacing.lg,
           ),
-          onPressed: () => _startAddCard(context, ref),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.add_card),
+              label: const Text('Add payment method'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: AppRadius.allMd,
+                ),
+              ),
+              onPressed: () => _startAddCard(context, ref),
+            ),
+          ),
         ),
       ),
     );
@@ -60,7 +75,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
       return const Center(
         child: Padding(
           padding: AppSpacing.screenPadding,
-          child: Text('No payment methods yet. Add a card to pay faster next time.'),
+          child: Text(
+            'No payment methods yet. Add a card to pay faster next time.',
+          ),
         ),
       );
     }
@@ -68,7 +85,12 @@ class PaymentMethodsScreen extends ConsumerWidget {
     return RefreshIndicator(
       onRefresh: () => ref.read(paymentMethodsProvider.notifier).refresh(),
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.sm, AppSpacing.md, 80),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          80,
+        ),
         itemCount: methods.length,
         itemBuilder: (context, index) {
           final method = methods[index];
@@ -98,9 +120,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
       await ref.read(paymentMethodsProvider.notifier).refresh();
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Add card failed: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Add card failed: $e')));
       }
     }
   }
@@ -120,7 +142,10 @@ class PaymentMethodsScreen extends ConsumerWidget {
           decoration: const InputDecoration(labelText: 'Nickname'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('Save'),
@@ -130,7 +155,9 @@ class PaymentMethodsScreen extends ConsumerWidget {
     );
 
     if (result != null) {
-      await ref.read(paymentMethodsProvider.notifier).updateLabel(method.id, result);
+      await ref
+          .read(paymentMethodsProvider.notifier)
+          .updateLabel(method.id, result);
     }
   }
 }
@@ -157,7 +184,9 @@ class _PaymentMethodTile extends StatelessWidget {
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
           child: Icon(
-            method.type == PaymentMethodType.card ? Icons.credit_card : Icons.account_balance,
+            method.type == PaymentMethodType.card
+                ? Icons.credit_card
+                : Icons.account_balance,
             color: theme.colorScheme.primary,
           ),
         ),
@@ -182,12 +211,12 @@ class _PaymentMethodTile extends StatelessWidget {
           },
           itemBuilder: (context) => [
             if (!method.isDefault)
-              const PopupMenuItem(value: 'default', child: Text('Set as default')),
+              const PopupMenuItem(
+                value: 'default',
+                child: Text('Set as default'),
+              ),
             const PopupMenuItem(value: 'edit', child: Text('Edit label')),
-            const PopupMenuItem(
-              value: 'delete',
-              child: Text('Remove'),
-            ),
+            const PopupMenuItem(value: 'delete', child: Text('Remove')),
           ],
         ),
         onTap: method.isDefault ? null : onSetDefault,
@@ -197,8 +226,8 @@ class _PaymentMethodTile extends StatelessWidget {
 
   String get _title {
     final brand = method.brand ?? method.provider.apiValue.toUpperCase();
-    final suffix = method.last4 != null ? '•••• ${method.last4}' : '';
+    final suffix = method.last4 != null ? ' •••• ${method.last4}' : '';
     final defaultBadge = method.isDefault ? ' (Default)' : '';
-    return '$brand $suffix$defaultBadge';
+    return '$brand$suffix$defaultBadge';
   }
 }
