@@ -352,7 +352,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                         ? 'Resume ${_activeTable!.code}'
                         : 'Create & Invite',
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
