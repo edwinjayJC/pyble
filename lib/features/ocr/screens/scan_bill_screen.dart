@@ -651,7 +651,10 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
               TextFormField(
                 controller: _priceController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: "Price", prefixText: "\$ "),
+                decoration: InputDecoration(
+                  labelText: "Price",
+                  prefixText: "${AppConstants.currencySymbol} ",
+                ),
                 validator: (val) => double.tryParse(val!) == null ? "Invalid price" : null,
               ),
             ],
@@ -690,7 +693,10 @@ class _ScanBillScreenState extends ConsumerState<ScanBillScreen> {
               TextFormField(
                 controller: _priceController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: "Price", prefixText: "\$ "),
+                decoration: InputDecoration(
+                  labelText: "Price",
+                  prefixText: "${AppConstants.currencySymbol} ",
+                ),
                 validator: (val) => double.tryParse(val!) == null ? "Invalid price" : null,
               ),
             ],
