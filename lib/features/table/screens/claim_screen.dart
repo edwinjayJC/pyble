@@ -1025,116 +1025,117 @@ class _GratuitySheetState extends State<GratuitySheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final mediaQuery = MediaQuery.of(context);
+    final bottomPadding =
+        mediaQuery.viewInsets.bottom + mediaQuery.padding.bottom + 24;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.scaffoldBackgroundColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        24,
-        24,
-        24,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            "Add Gratuity",
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Select a tip for the group. This will be split proportionally.",
-            style: TextStyle(
-              color: colorScheme.onSurface.withOpacity(0.6),
-              fontSize: 14,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 24),
-
-          // 1. Tip Percentages (Segmented Control)
-          Row(
-            children: [
-              _buildTipButton(10),
-              const SizedBox(width: 12),
-              _buildTipButton(15),
-              const SizedBox(width: 12),
-              _buildTipButton(20),
-              const SizedBox(width: 12),
-              _buildCustomButton(),
-            ],
-          ),
-
-          if (_selectedPercent == -1) ...[
-            const SizedBox(height: 16),
-            TextField(
-              controller: _customController,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: EdgeInsets.fromLTRB(24, 24, 24, bottomPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              "Add Gratuity",
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
               ),
-              decoration: const InputDecoration(
-                labelText: "Custom Tip Amount",
-                prefixText: "\$ ",
-                border: OutlineInputBorder(),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Select a tip for the group. This will be split proportionally.",
+              style: TextStyle(
+                color: colorScheme.onSurface.withOpacity(0.6),
+                fontSize: 14,
               ),
-              onChanged: (_) => setState(() {}), // Refresh math
+              textAlign: TextAlign.center,
             ),
-          ],
+            const SizedBox(height: 24),
 
-          const SizedBox(height: 24),
-
-          // 2. The Math Summary
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.dividerColor),
-            ),
-            child: Column(
+            // 1. Tip Percentages (Segmented Control)
+            Row(
               children: [
-                _buildRow("Subtotal", widget.billTotal, theme),
-                const SizedBox(height: 8),
-                _buildRow("Tip", _tipAmount, theme, isBold: true),
-                const Divider(height: 24),
-                _buildRow("Grand Total", _finalTotal, theme, isTotal: true),
+                _buildTipButton(10),
+                const SizedBox(width: 12),
+                _buildTipButton(15),
+                const SizedBox(width: 12),
+                _buildTipButton(20),
+                const SizedBox(width: 12),
+                _buildCustomButton(),
               ],
             ),
-          ),
 
-          const SizedBox(height: 24),
-
-          // 3. Lock Button
-          SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                widget.onConfirm(_tipAmount);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.deepBerry,
-                foregroundColor: AppColors.snow,
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            if (_selectedPercent == -1) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _customController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
                 ),
+                decoration: const InputDecoration(
+                  labelText: "Custom Tip Amount",
+                  prefixText: "\$ ",
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}), // Refresh math
               ),
-              child: const Text(
-                "Confirm & Lock Bill",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ],
+
+            const SizedBox(height: 24),
+
+            // 2. The Math Summary
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Column(
+                children: [
+                  _buildRow("Subtotal", widget.billTotal, theme),
+                  const SizedBox(height: 8),
+                  _buildRow("Tip", _tipAmount, theme, isBold: true),
+                  const Divider(height: 24),
+                  _buildRow("Grand Total", _finalTotal, theme, isTotal: true),
+                ],
               ),
             ),
-          ),
-        ],
+
+            const SizedBox(height: 24),
+
+            // 3. Lock Button
+            SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onConfirm(_tipAmount);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.deepBerry,
+                  foregroundColor: AppColors.snow,
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "Confirm & Lock Bill",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
