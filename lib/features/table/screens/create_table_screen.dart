@@ -8,7 +8,6 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/providers/supabase_provider.dart';
 import '../providers/table_provider.dart';
-import '../models/table_session.dart';
 
 class CreateTableScreen extends ConsumerStatefulWidget {
   const CreateTableScreen({super.key});
@@ -23,18 +22,13 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
   late final String _suggestedTitle;
 
   bool _isLoading = false;
-  TableSession? _activeTable;
 
   @override
   void initState() {
     super.initState();
     _suggestedTitle = _generateSmartTitle();
-    _titleController = TextEditingController(); // Start empty to let hint show
-
-    // Non-blocking check for existing sessions
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForActiveTable();
-    });
+    // Start empty to let the hint text do the work visually
+    _titleController = TextEditingController();
   }
 
   @override
@@ -48,52 +42,16 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     final day = DateFormat('EEEE').format(now); // "Friday"
     String meal = "Gathering";
 
-    if (now.hour < 11)
-      meal = "Breakfast";
-    else if (now.hour < 16)
-      meal = "Lunch";
-    else if (now.hour < 22)
-      meal = "Dinner";
-    else
-      meal = "Late Night";
+    if (now.hour < 11) meal = "Breakfast";
+    else if (now.hour < 16) meal = "Lunch";
+    else if (now.hour < 22) meal = "Dinner";
+    else meal = "Late Night";
 
     return "$day $meal";
   }
 
-  Future<void> _checkForActiveTable() async {
-    try {
-      final currentUser = ref.read(currentUserProvider);
-      if (currentUser == null) return;
-
-      final repository = ref.read(tableRepositoryProvider);
-      final activeTables = await repository.getActiveTables();
-
-      final hostedTable = activeTables
-          .where(
-            (table) =>
-                table.hostUserId == currentUser.id &&
-                (table.status == TableStatus.claiming ||
-                    table.status == TableStatus.collecting),
-          )
-          .firstOrNull;
-
-      if (mounted && hostedTable != null) {
-        setState(() {
-          _activeTable = hostedTable;
-        });
-      }
-    } catch (e) {
-      // Fail silently
-    }
-  }
-
   Future<void> _createTable() async {
     if (!_formKey.currentState!.validate()) return;
-
-    if (_activeTable != null) {
-      _showResumeDialog();
-      return;
-    }
 
     setState(() => _isLoading = true);
 
@@ -102,15 +60,15 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
       // UX FIX: If empty, use the Smart Suggestion as the actual title
       final finalTitle = enteredTitle.isEmpty ? _suggestedTitle : enteredTitle;
 
-      await ref
-          .read(currentTableProvider.notifier)
-          .createTable(title: finalTitle);
+      // Create the table (No pre-checks for existing tables anymore)
+      await ref.read(currentTableProvider.notifier).createTable(
+        title: finalTitle,
+      );
 
       final tableData = ref.read(currentTableProvider).valueOrNull;
 
       if (tableData != null && mounted) {
-        // FLOW UPDATE: Go to INVITE (Lobby), not Scan.
-        // This allows the "Pre-Event" creation flow.
+        // FLOW: Go to INVITE (Lobby) immediately to allow pre-planning
         context.go('/table/${tableData.table.id}/invite');
       }
     } catch (e) {
@@ -128,40 +86,6 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     }
   }
 
-  void _showResumeDialog() {
-    final theme = Theme.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Resume Active Event?"),
-        content: Text(
-          "You already have an open event: '${_activeTable?.title ?? 'Untitled'}'.\n\nYou must finish or cancel that one before starting a new one.",
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              "Cancel",
-              style: TextStyle(color: theme.colorScheme.onSurface),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Resume goes to Invite/Lobby to check on guests
-              context.go('/table/${_activeTable!.id}/invite');
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: theme.colorScheme.onPrimary,
-            ),
-            child: const Text("Go to Event"),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -177,7 +101,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
         ),
       ),
       body: SafeArea(
-        bottom: false,
+        bottom: false, // Let the footer handle the bottom safe area
         child: Column(
           children: [
             Expanded(
@@ -186,9 +110,7 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                   return SingleChildScrollView(
                     padding: AppSpacing.screenPadding,
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: constraints.maxHeight,
-                      ),
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
                       child: IntrinsicHeight(
                         child: Form(
                           key: _formKey,
@@ -227,63 +149,51 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                               Text(
                                 'Set up the table now.\nInvite friends before you even arrive.',
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.6),
+                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
                                   height: 1.5,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
 
-                              const SizedBox(height: 40),
-
-                              // The Resume Card
-                              if (_activeTable != null)
-                                _buildResumeCard(context),
+                              const SizedBox(height: 48),
 
                               // 3. Input Fields
-                              if (_activeTable == null) ...[
-                                TextFormField(
-                                  controller: _titleController,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: theme.colorScheme.onSurface,
+                              TextFormField(
+                                controller: _titleController,
+                                textCapitalization: TextCapitalization.sentences,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                                decoration: InputDecoration(
+                                  labelText: 'Event Name',
+                                  hintText: _suggestedTitle,
+                                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                                  hintStyle: TextStyle(
+                                    color: theme.colorScheme.onSurface.withOpacity(0.4),
+                                    fontStyle: FontStyle.normal,
                                   ),
-                                  decoration: InputDecoration(
-                                    labelText: 'Event Name',
-                                    hintText: _suggestedTitle,
-                                    floatingLabelBehavior:
-                                        FloatingLabelBehavior.always,
-                                    hintStyle: TextStyle(
-                                      color: theme.colorScheme.onSurface
-                                          .withOpacity(0.4),
-                                      fontStyle: FontStyle.normal,
-                                    ),
-                                    prefixIcon: Icon(
-                                      Icons.edit_outlined,
-                                      color: theme.colorScheme.onSurface
-                                          .withOpacity(0.7),
-                                    ),
-                                    filled: true,
-                                    fillColor: theme.colorScheme.surface,
-                                    border: const OutlineInputBorder(
-                                      borderRadius: AppRadius.allMd,
-                                      borderSide: BorderSide.none,
-                                    ),
+                                  prefixIcon: Icon(
+                                    Icons.edit_outlined,
+                                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                  ),
+                                  filled: true,
+                                  fillColor: theme.colorScheme.surface,
+                                  border: const OutlineInputBorder(
+                                    borderRadius: AppRadius.allMd,
+                                    borderSide: BorderSide.none,
                                   ),
                                 ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  "Leave empty to name it '$_suggestedTitle'",
-                                  style: TextStyle(
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                "Leave empty to name it '$_suggestedTitle'",
+                                style: TextStyle(
                                     fontSize: 12,
-                                    color: theme.colorScheme.onSurface
-                                        .withOpacity(0.5),
-                                  ),
-                                  textAlign: TextAlign.center,
+                                    color: theme.colorScheme.onSurface.withOpacity(0.5)
                                 ),
-                              ],
+                                textAlign: TextAlign.center,
+                              ),
 
                               const SizedBox(height: AppSpacing.xl),
                             ],
@@ -295,6 +205,8 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
                 },
               ),
             ),
+
+            // 4. Sticky Footer
             _buildCreateFooter(context),
           ],
         ),
@@ -306,30 +218,26 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    return SafeArea(
-      top: false,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 32), // Extra padding for safe area manually if needed
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
         child: SizedBox(
           height: 56,
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: _isLoading
-                ? null
-                : (_activeTable != null
-                      ? () => context.go('/table/${_activeTable!.id}/invite')
-                      : _createTable),
+            onPressed: _isLoading ? null : _createTable,
             style: ElevatedButton.styleFrom(
               backgroundColor: theme.colorScheme.primary,
               foregroundColor: theme.colorScheme.onPrimary,
@@ -340,67 +248,22 @@ class _CreateTableScreenState extends ConsumerState<CreateTableScreen> {
             ),
             child: _isLoading
                 ? SizedBox(
-                    height: 24,
-                    width: 24,
-                    child: CircularProgressIndicator(
-                      color: theme.colorScheme.onPrimary,
-                      strokeWidth: 2.5,
-                    ),
-                  )
-                : Text(
-                    _activeTable != null
-                        ? 'Resume ${_activeTable!.code}'
-                        : 'Create & Invite',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResumeCard(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withOpacity(0.1),
-        borderRadius: AppRadius.allMd,
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.event_available, color: theme.colorScheme.primary),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Event in Progress",
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  _activeTable?.title ?? "Table ${_activeTable?.code}",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-              ],
+              height: 24,
+              width: 24,
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.onPrimary,
+                strokeWidth: 2.5,
+              ),
+            )
+                : const Text(
+              'Create & Invite',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          Icon(Icons.chevron_right, color: theme.colorScheme.primary),
-        ],
+        ),
       ),
     );
   }

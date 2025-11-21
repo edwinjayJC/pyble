@@ -197,27 +197,13 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     final repository = ref.read(tableRepositoryProvider);
 
     try {
-      final updatedTable = await repository.lockTable(currentData.table.id);
+      // Pass tip amount to backend - it will calculate proportional distribution
+      await repository.lockTable(currentData.table.id, tipAmount: tipAmount);
 
-      // Calculate total owed for each participant based on their claims
-      final updatedParticipants = currentData.participants.map((participant) {
-        double totalOwed = 0.0;
-        for (final item in currentData.items) {
-          totalOwed += item.getShareForUser(participant.userId);
-        }
-        return participant.copyWith(totalOwed: totalOwed);
-      }).toList();
-
-      state = AsyncValue.data(
-        TableData(
-          table: updatedTable,
-          participants: updatedParticipants,
-          items: currentData.items,
-          subTotal: currentData.subTotal,
-          tax: currentData.tax,
-          tip: currentData.tip,
-        ),
-      );
+      // Reload table data from backend to get correct totalOwed values
+      // (backend calculates proportional tip distribution for each participant)
+      final tableData = await repository.getTableData(currentData.table.id);
+      state = AsyncValue.data(tableData);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       rethrow;
