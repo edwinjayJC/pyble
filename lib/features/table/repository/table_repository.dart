@@ -13,6 +13,9 @@ class TableData {
   final double subTotal;
   final double tax;
   final double tip;
+  final double totalBillAmountZar;
+  final double totalTipAmountZar;
+  final double restaurantTotalDueZar;
 
   const TableData({
     required this.table,
@@ -21,15 +24,20 @@ class TableData {
     this.subTotal = 0.0,
     this.tax = 0.0,
     this.tip = 0.0,
+    this.totalBillAmountZar = 0.0,
+    this.totalTipAmountZar = 0.0,
+    this.restaurantTotalDueZar = 0.0,
   });
 
   factory TableData.fromJson(Map<String, dynamic> json) {
     final tableJson = Map<String, dynamic>.from(json);
-    final participantsList = (json['participants'] as List<dynamic>?)
+    final participantsList =
+        (json['participants'] as List<dynamic>?)
             ?.map((e) => Participant.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
-    final itemsList = (json['items'] as List<dynamic>?)
+    final itemsList =
+        (json['items'] as List<dynamic>?)
             ?.map((e) => BillItem.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
@@ -41,6 +49,11 @@ class TableData {
       subTotal: (json['subTotal'] as num?)?.toDouble() ?? 0.0,
       tax: (json['tax'] as num?)?.toDouble() ?? 0.0,
       tip: (json['tip'] as num?)?.toDouble() ?? 0.0,
+      totalBillAmountZar:
+          (json['totalBillAmountZar'] as num?)?.toDouble() ?? 0.0,
+      totalTipAmountZar: (json['totalTipAmountZar'] as num?)?.toDouble() ?? 0.0,
+      restaurantTotalDueZar:
+          (json['restaurantTotalDueZar'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -55,6 +68,9 @@ class TableData {
       ),
       participants: [],
       items: [],
+      totalBillAmountZar: 0.0,
+      totalTipAmountZar: 0.0,
+      restaurantTotalDueZar: 0.0,
     );
   }
 
@@ -65,6 +81,9 @@ class TableData {
     double? subTotal,
     double? tax,
     double? tip,
+    double? totalBillAmountZar,
+    double? totalTipAmountZar,
+    double? restaurantTotalDueZar,
   }) {
     return TableData(
       table: table ?? this.table,
@@ -73,6 +92,10 @@ class TableData {
       subTotal: subTotal ?? this.subTotal,
       tax: tax ?? this.tax,
       tip: tip ?? this.tip,
+      totalBillAmountZar: totalBillAmountZar ?? this.totalBillAmountZar,
+      totalTipAmountZar: totalTipAmountZar ?? this.totalTipAmountZar,
+      restaurantTotalDueZar:
+          restaurantTotalDueZar ?? this.restaurantTotalDueZar,
     );
   }
 }
@@ -126,9 +149,7 @@ class TableRepository {
   Future<TableSession> createTable({String? title}) async {
     return await apiClient.post(
       '/tables',
-      body: {
-        if (title != null) 'title': title,
-      },
+      body: {if (title != null) 'title': title},
       parser: (data) {
         // API returns { "table": SplitTable, "signalRNegotiationPayload": {...} }
         final tableData = data['table'] as Map<String, dynamic>;
@@ -162,10 +183,7 @@ class TableRepository {
   }) async {
     return await apiClient.put(
       '/tables/$tableId/item',
-      body: {
-        'name': description,
-        'price': price,
-      },
+      body: {'name': description, 'price': price},
       parser: (data) => BillItem.fromJson(data as Map<String, dynamic>),
     );
   }
@@ -178,10 +196,7 @@ class TableRepository {
   }) async {
     return await apiClient.put(
       '/tables/$tableId/items/$itemId',
-      body: {
-        'name': description,
-        'price': price,
-      },
+      body: {'name': description, 'price': price},
       parser: (data) {
         // API returns { message: "...", table: {...} }
         // Extract the updated item from the table
@@ -200,19 +215,11 @@ class TableRepository {
     required String tableId,
     required String itemId,
   }) async {
-    await apiClient.delete(
-      '/tables/$tableId/items/$itemId',
-      parser: (_) {},
-    );
+    await apiClient.delete('/tables/$tableId/items/$itemId', parser: (_) {});
   }
 
-  Future<void> clearAllItems({
-    required String tableId,
-  }) async {
-    await apiClient.delete(
-      '/tables/$tableId/items',
-      parser: (_) {},
-    );
+  Future<void> clearAllItems({required String tableId}) async {
+    await apiClient.delete('/tables/$tableId/items', parser: (_) {});
   }
 
   /// Scans a bill image and adds items to the table
@@ -228,10 +235,7 @@ class TableRepository {
 
     return await apiClient.post(
       '/tables/$tableId/scan',
-      body: {
-        'image': base64Image,
-        'mimeType': mimeType,
-      },
+      body: {'image': base64Image, 'mimeType': mimeType},
       parser: (data) {
         // API returns { message: 'Bill scanned successfully', itemCount: N }
         return (data['itemCount'] as num?)?.toInt() ?? 0;
@@ -239,7 +243,10 @@ class TableRepository {
     );
   }
 
-  Future<TableSession> lockTable(String tableId, {double tipAmount = 0.0}) async {
+  Future<TableSession> lockTable(
+    String tableId, {
+    double tipAmount = 0.0,
+  }) async {
     return await apiClient.put(
       '/tables/$tableId/lock',
       body: {
@@ -264,17 +271,11 @@ class TableRepository {
   }
 
   Future<void> cancelTable(String tableId) async {
-    await apiClient.put(
-      '/tables/$tableId/cancel',
-      parser: (_) {},
-    );
+    await apiClient.put('/tables/$tableId/cancel', parser: (_) {});
   }
 
   Future<void> leaveTable(String tableId) async {
-    await apiClient.post(
-      '/tables/$tableId/leave',
-      parser: (_) {},
-    );
+    await apiClient.post('/tables/$tableId/leave', parser: (_) {});
   }
 
   String getJoinLink(String tableCode) {
@@ -289,10 +290,7 @@ class TableRepository {
   }) async {
     await apiClient.put(
       '/tables/$tableId/claim',
-      body: {
-        'itemId': itemId,
-        'action': action,
-      },
+      body: {'itemId': itemId, 'action': action},
       parser: (_) {},
     );
   }
@@ -306,11 +304,7 @@ class TableRepository {
     for (final userId in userIds) {
       await apiClient.put(
         '/tables/$tableId/claim',
-        body: {
-          'itemId': itemId,
-          'action': 'claim',
-          'userId': userId,
-        },
+        body: {'itemId': itemId, 'action': 'claim', 'userId': userId},
         parser: (_) {},
       );
     }
@@ -327,9 +321,7 @@ class TableRepository {
   }) async {
     return await apiClient.post(
       '/tables/$tableId/items/$itemId/request-split',
-      body: {
-        'userIds': userIds,
-      },
+      body: {'userIds': userIds},
       parser: (data) {
         final requests = data['requests'] as List<dynamic>? ?? [];
         return requests
@@ -361,9 +353,7 @@ class TableRepository {
   }) async {
     return await apiClient.put(
       '/tables/$tableId/split-requests/$requestId/respond',
-      body: {
-        'action': action,
-      },
+      body: {'action': action},
       parser: (data) {
         final request = data['request'] as Map<String, dynamic>;
         return SplitRequest.fromJson(request);
@@ -371,4 +361,3 @@ class TableRepository {
     );
   }
 }
-

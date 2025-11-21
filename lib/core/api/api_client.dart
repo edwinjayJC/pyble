@@ -18,11 +18,9 @@ class ApiClient {
   final String baseUrl;
   final SupabaseClient _supabase;
 
-  ApiClient({
-    String? baseUrl,
-    required SupabaseClient supabase,
-  })  : baseUrl = baseUrl ?? AppConstants.apiBaseUrl,
-        _supabase = supabase;
+  ApiClient({String? baseUrl, required SupabaseClient supabase})
+    : baseUrl = baseUrl ?? AppConstants.apiBaseUrl,
+      _supabase = supabase;
 
   Future<Map<String, String>> _getHeaders() async {
     final session = _supabase.auth.currentSession;
@@ -39,7 +37,9 @@ class ApiClient {
     Map<String, String>? queryParams,
     T Function(dynamic)? parser,
   }) async {
-    final uri = Uri.parse('$baseUrl$path').replace(queryParameters: queryParams);
+    final uri = Uri.parse(
+      '$baseUrl$path',
+    ).replace(queryParameters: queryParams);
     final headers = await _getHeaders();
 
     final response = await http.get(uri, headers: headers);
@@ -78,14 +78,27 @@ class ApiClient {
     return _handleResponse(response, parser);
   }
 
-  Future<T> delete<T>(
+  Future<T> delete<T>(String path, {T Function(dynamic)? parser}) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final headers = await _getHeaders();
+
+    final response = await http.delete(uri, headers: headers);
+    return _handleResponse(response, parser);
+  }
+
+  Future<T> patch<T>(
     String path, {
+    Map<String, dynamic>? body,
     T Function(dynamic)? parser,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
     final headers = await _getHeaders();
 
-    final response = await http.delete(uri, headers: headers);
+    final response = await http.patch(
+      uri,
+      headers: headers,
+      body: body != null ? jsonEncode(body) : null,
+    );
     return _handleResponse(response, parser);
   }
 

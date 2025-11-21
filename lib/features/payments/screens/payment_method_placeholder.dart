@@ -12,9 +12,7 @@ class PaymentMethodPlaceholderScreen extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Payment Method'),
-      ),
+      appBar: AppBar(title: const Text('Payment Method')),
       body: Padding(
         padding: AppSpacing.screenPadding,
         child: Column(

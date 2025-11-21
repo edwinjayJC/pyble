@@ -3,11 +3,11 @@ import 'package:go_router/go_router.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../models/payment_record.dart';
+import '../models/paystack_models.dart';
 
 class PaymentWebviewScreen extends StatefulWidget {
   final String tableId;
-  final InitiatePaymentResponse paymentResponse;
+  final PaystackInitializeResponse paymentResponse;
 
   const PaymentWebviewScreen({
     super.key,
@@ -64,7 +64,7 @@ class _PaymentWebviewScreenState extends State<PaymentWebviewScreen> {
           },
         ),
       )
-      ..loadRequest(Uri.parse(widget.paymentResponse.paymentUrl));
+      ..loadRequest(Uri.parse(widget.paymentResponse.authorizationUrl));
   }
 
   bool _isCallbackUrl(String url) {
@@ -89,8 +89,8 @@ class _PaymentWebviewScreenState extends State<PaymentWebviewScreen> {
     context.pushReplacement(
       '/payment-processing/${widget.tableId}',
       extra: {
-        'paymentId': widget.paymentResponse.paymentId,
-        'status': status,
+        'paymentReference': widget.paymentResponse.reference,
+        'gatewayStatus': status,
       },
     );
   }
@@ -128,9 +128,7 @@ class _PaymentWebviewScreenState extends State<PaymentWebviewScreen> {
           if (_isLoading && _errorMessage == null)
             Container(
               color: AppColors.snow.withOpacity(0.8),
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
       ),
@@ -197,9 +195,7 @@ class _PaymentWebviewScreenState extends State<PaymentWebviewScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.warmSpice,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.warmSpice),
             child: const Text('Cancel'),
           ),
         ],

@@ -19,7 +19,8 @@ class JoinTableScreen extends ConsumerStatefulWidget {
   ConsumerState<JoinTableScreen> createState() => _JoinTableScreenState();
 }
 
-class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTickerProviderStateMixin {
+class _JoinTableScreenState extends ConsumerState<JoinTableScreen>
+    with SingleTickerProviderStateMixin {
   final _codeController = TextEditingController();
   bool _isLoading = false;
   bool _showScanner = false; // Mode Toggle
@@ -31,7 +32,10 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
 
     // Auto-join logic
     if (widget.initialCode != null && widget.initialCode!.isNotEmpty) {
@@ -61,7 +65,9 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
     });
 
     try {
-      await ref.read(currentTableProvider.notifier).joinTableByCode(code.toUpperCase());
+      await ref
+          .read(currentTableProvider.notifier)
+          .joinTableByCode(code.toUpperCase());
 
       if (mounted) {
         HapticFeedback.heavyImpact(); // Success thud
@@ -115,12 +121,19 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
 
     return Scaffold(
       // FIX: Use Theme background, or Black if scanner is active
-      backgroundColor: _showScanner ? Colors.black : theme.scaffoldBackgroundColor,
+      backgroundColor: _showScanner
+          ? Colors.black
+          : theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: _showScanner ? Colors.transparent : theme.scaffoldBackgroundColor,
+        backgroundColor: _showScanner
+            ? Colors.transparent
+            : theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.close, color: _showScanner ? Colors.white : theme.colorScheme.onSurface),
+          icon: Icon(
+            Icons.close,
+            color: _showScanner ? Colors.white : theme.colorScheme.onSurface,
+          ),
           onPressed: () {
             if (_showScanner) {
               setState(() => _showScanner = false);
@@ -129,11 +142,18 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
             }
           },
         ),
-        title: !_showScanner ? Text(
-            "Enter Code",
-            style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)
-        ) : null,
-        systemOverlayStyle: _showScanner ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+        title: !_showScanner
+            ? Text(
+                "Enter Code",
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
+            : null,
+        systemOverlayStyle: _showScanner
+            ? SystemUiOverlayStyle.light
+            : SystemUiOverlayStyle.dark,
       ),
       extendBodyBehindAppBar: _showScanner,
       body: AnimatedSwitcher(
@@ -153,20 +173,26 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.vpn_key_outlined, size: 48, color: theme.colorScheme.primary),
+            Icon(
+              Icons.vpn_key_outlined,
+              size: 48,
+              color: theme.colorScheme.primary,
+            ),
             const SizedBox(height: 24),
             Text(
               "What's the magic word?",
               style: theme.textTheme.headlineMedium?.copyWith(
-                  color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.bold
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               "Ask the host for the 6-character code.",
-              style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.6)),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
             ),
 
             const SizedBox(height: 40),
@@ -199,7 +225,10 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
                   // FIX: Use Surface color (Ink/Snow)
                   fillColor: theme.colorScheme.surface,
                   hintText: "______",
-                  hintStyle: TextStyle(color: theme.dividerColor, letterSpacing: 8),
+                  hintStyle: TextStyle(
+                    color: theme.dividerColor,
+                    letterSpacing: 8,
+                  ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                     borderSide: BorderSide(color: theme.dividerColor),
@@ -210,7 +239,10 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
+                    borderSide: BorderSide(
+                      color: theme.colorScheme.primary,
+                      width: 2,
+                    ),
                   ),
                 ),
                 onChanged: (val) {
@@ -225,7 +257,10 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
             if (_errorMessage != null) ...[
               const SizedBox(height: 24),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
@@ -235,7 +270,13 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
                   children: [
                     Icon(Icons.error, size: 18, color: theme.colorScheme.error),
                     const SizedBox(width: 8),
-                    Text(_errorMessage!, style: TextStyle(color: theme.colorScheme.error, fontWeight: FontWeight.bold)),
+                    Text(
+                      _errorMessage!,
+                      style: TextStyle(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -257,16 +298,34 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                      child: Text("Enter Table", style: TextStyle(color: theme.colorScheme.onPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                      child: Text(
+                        "Enter Table",
+                        style: TextStyle(
+                          color: theme.colorScheme.onPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   TextButton.icon(
                     onPressed: () => setState(() => _showScanner = true),
-                    icon: Icon(Icons.qr_code_scanner, color: theme.colorScheme.onSurface),
-                    label: Text("Scan QR Code instead", style: TextStyle(color: theme.colorScheme.onSurface, fontWeight: FontWeight.bold)),
+                    icon: Icon(
+                      Icons.qr_code_scanner,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                    label: Text(
+                      "Scan QR Code instead",
+                      style: TextStyle(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -281,9 +340,7 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
     return Stack(
       children: [
         // 1. The Camera Feed
-        MobileScanner(
-          onDetect: _onQRCodeDetected,
-        ),
+        MobileScanner(onDetect: _onQRCodeDetected),
 
         // 2. The Dark Overlay with Cutout
         ColorFiltered(
@@ -322,7 +379,12 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
             child: Stack(
               children: [
                 // Scan Line Animation (Static for MVP)
-                Center(child: Container(height: 1, color: AppColors.lushGreen.withOpacity(0.5))),
+                Center(
+                  child: Container(
+                    height: 1,
+                    color: AppColors.lushGreen.withOpacity(0.5),
+                  ),
+                ),
               ],
             ),
           ),
@@ -354,7 +416,10 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen> with SingleTi
             child: TextButton(
               onPressed: () => setState(() => _showScanner = false),
               style: TextButton.styleFrom(backgroundColor: Colors.white24),
-              child: const Text("Type Code Manually", style: TextStyle(color: Colors.white)),
+              child: const Text(
+                "Type Code Manually",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ),
         ),

@@ -34,7 +34,8 @@ class BillItemRow extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final isClaimedByMe = currentUserId != null && item.isClaimedByUser(currentUserId!);
+    final isClaimedByMe =
+        currentUserId != null && item.isClaimedByUser(currentUserId!);
     final isShared = item.claimantsCount > 1;
 
     return Card(
@@ -79,13 +80,18 @@ class BillItemRow extends StatelessWidget {
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: colorScheme.onSurface.withOpacity(0.6),
-                              fontFeatures: [const FontFeature.tabularFigures()],
+                              fontFeatures: [
+                                const FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                           if (isShared) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 // FIX: Use divider color for neutral background
                                 color: theme.dividerColor.withOpacity(0.5),
@@ -159,17 +165,23 @@ class BillItemRow extends StatelessWidget {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             // Active: Tinted Primary. Inactive: Transparent
-            color: isShared ? colorScheme.primary.withOpacity(0.1) : Colors.transparent,
+            color: isShared
+                ? colorScheme.primary.withOpacity(0.1)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isShared ? colorScheme.primary.withOpacity(0.3) : Colors.transparent,
+              color: isShared
+                  ? colorScheme.primary.withOpacity(0.3)
+                  : Colors.transparent,
             ),
           ),
           child: Icon(
             Icons.call_split,
             size: 20,
             // Active: Primary. Inactive: Faded Text Color
-            color: isShared ? colorScheme.primary : colorScheme.onSurface.withOpacity(0.4),
+            color: isShared
+                ? colorScheme.primary
+                : colorScheme.onSurface.withOpacity(0.4),
           ),
         ),
       ),
@@ -202,7 +214,9 @@ class BillItemRow extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               // Active: OnPrimary (White/Black). Inactive: OnSurface (Fig/White)
-              color: isClaimedByMe ? colorScheme.onPrimary : colorScheme.onSurface,
+              color: isClaimedByMe
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurface,
             ),
           ),
         ),
@@ -225,7 +239,7 @@ class BillItemRow extends StatelessWidget {
           final index = entry.key;
           final claim = entry.value;
           final participant = participants.firstWhere(
-                (p) => p.userId == claim.userId,
+            (p) => p.userId == claim.userId,
             orElse: () => Participant(
               id: claim.userId,
               tableId: '',
@@ -253,15 +267,15 @@ class BillItemRow extends StatelessWidget {
                     : theme.dividerColor,
                 child: participant.avatarUrl == null
                     ? Text(
-                  participant.initials,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: claim.userId == currentUserId
-                        ? colorScheme.onPrimary
-                        : colorScheme.onSurface,
-                  ),
-                )
+                        participant.initials,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: claim.userId == currentUserId
+                              ? colorScheme.onPrimary
+                              : colorScheme.onSurface,
+                        ),
+                      )
                     : null,
               ),
             ),

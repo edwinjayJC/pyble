@@ -2,10 +2,7 @@ class ClaimedBy {
   final String userId;
   final double share;
 
-  const ClaimedBy({
-    required this.userId,
-    required this.share,
-  });
+  const ClaimedBy({required this.userId, required this.share});
 
   factory ClaimedBy.fromJson(Map<String, dynamic> json) {
     return ClaimedBy(
@@ -15,10 +12,7 @@ class ClaimedBy {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'userId': userId,
-      'share': share,
-    };
+    return {'userId': userId, 'share': share};
   }
 }
 
@@ -43,7 +37,8 @@ class BillItem {
       tableId: json['tableId'] as String? ?? '',
       description: json['name'] as String? ?? json['description'] as String,
       price: (json['price'] as num).toDouble(),
-      claimedBy: (json['claimedBy'] as List<dynamic>?)
+      claimedBy:
+          (json['claimedBy'] as List<dynamic>?)
               ?.map((e) => ClaimedBy.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],

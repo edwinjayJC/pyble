@@ -33,7 +33,9 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Silent reload to ensure data is fresh
-      ref.read(currentTableProvider.notifier).loadTable(widget.tableId, showLoading: false);
+      ref
+          .read(currentTableProvider.notifier)
+          .loadTable(widget.tableId, showLoading: false);
     });
   }
 
@@ -95,7 +97,10 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
             children: [
               // 2. LIVE TOTAL HEADER
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 24,
+                ),
                 decoration: BoxDecoration(
                   color: theme.colorScheme.surface,
                   border: Border(bottom: BorderSide(color: theme.dividerColor)),
@@ -128,7 +133,12 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
               // 3. EDITABLE LIST
               Expanded(
                 child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Bottom pad for FAB
+                  padding: const EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    80,
+                  ), // Bottom pad for FAB
                   itemCount: items.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
@@ -139,7 +149,9 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
             ],
           );
         },
-        loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
+        loading: () => Center(
+          child: CircularProgressIndicator(color: theme.colorScheme.primary),
+        ),
         error: (e, _) => Center(child: Text("Error: $e")),
       ),
     );
@@ -150,7 +162,10 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
   Widget _buildAccessDeniedView(ThemeData theme) {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(backgroundColor: theme.scaffoldBackgroundColor, elevation: 0),
+      appBar: AppBar(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        elevation: 0,
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -159,7 +174,11 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
             const SizedBox(height: 16),
             Text(
               'Host Access Only',
-              style: TextStyle(color: theme.colorScheme.onSurface, fontSize: 18, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: theme.colorScheme.onSurface,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -227,7 +246,11 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
               child: Row(
                 children: [
                   // Edit Icon Indicator
-                  Icon(Icons.edit_note, color: theme.colorScheme.primary.withOpacity(0.5), size: 20),
+                  Icon(
+                    Icons.edit_note,
+                    color: theme.colorScheme.primary.withOpacity(0.5),
+                    size: 20,
+                  ),
                   const SizedBox(width: 16),
 
                   // Content
@@ -248,11 +271,19 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
                             padding: const EdgeInsets.only(top: 4),
                             child: Row(
                               children: [
-                                Icon(Icons.check_circle, size: 12, color: AppColors.lushGreen),
+                                Icon(
+                                  Icons.check_circle,
+                                  size: 12,
+                                  color: AppColors.lushGreen,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'Claimed',
-                                  style: TextStyle(fontSize: 12, color: AppColors.lushGreen, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.lushGreen,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -285,23 +316,34 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
   Future<bool> _confirmDelete(BuildContext context, BillItem item) async {
     final theme = Theme.of(context);
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove Item?'),
-        content: Text("Are you sure you want to remove '${item.description}'?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: TextStyle(color: theme.colorScheme.onSurface)),
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Remove Item?'),
+            content: Text(
+              "Are you sure you want to remove '${item.description}'?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.error,
+                ),
+                child: Text(
+                  'Delete',
+                  style: TextStyle(color: theme.colorScheme.onError),
+                ),
+              ),
+            ],
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.error),
-            child: Text('Delete', style: TextStyle(color: theme.colorScheme.onError)),
-          ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   // The Bottom Sheet Editor
@@ -322,13 +364,15 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: theme.colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (context) => Padding(
         padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-            top: 24,
-            left: 24,
-            right: 24
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          top: 24,
+          left: 24,
+          right: 24,
         ),
         child: Form(
           key: _formKey,
@@ -338,7 +382,9 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
             children: [
               Text(
                 isEditing ? 'Edit Item' : 'Add New Item',
-                style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -358,13 +404,16 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _priceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Price',
                   prefixText: '\$ ',
                   prefixIcon: Icon(Icons.attach_money),
                 ),
-                validator: (val) => double.tryParse(val!) == null ? 'Invalid price' : null,
+                validator: (val) =>
+                    double.tryParse(val!) == null ? 'Invalid price' : null,
               ),
               const SizedBox(height: 32),
 
@@ -385,9 +434,14 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: theme.colorScheme.primary,
                     foregroundColor: theme.colorScheme.onPrimary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: Text(isEditing ? 'Save Changes' : 'Add to Bill', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    isEditing ? 'Save Changes' : 'Add to Bill',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
             ],
@@ -401,10 +455,12 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
 
   Future<void> _addItem() async {
     try {
-      await ref.read(currentTableProvider.notifier).addItem(
-        description: _descriptionController.text.trim(),
-        price: double.parse(_priceController.text),
-      );
+      await ref
+          .read(currentTableProvider.notifier)
+          .addItem(
+            description: _descriptionController.text.trim(),
+            price: double.parse(_priceController.text),
+          );
       HapticFeedback.mediumImpact();
     } catch (e) {
       _showError(e.toString());
@@ -413,11 +469,13 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
 
   Future<void> _editItem(String itemId) async {
     try {
-      await ref.read(currentTableProvider.notifier).updateItem(
-        itemId: itemId,
-        description: _descriptionController.text.trim(),
-        price: double.parse(_priceController.text),
-      );
+      await ref
+          .read(currentTableProvider.notifier)
+          .updateItem(
+            itemId: itemId,
+            description: _descriptionController.text.trim(),
+            price: double.parse(_priceController.text),
+          );
       HapticFeedback.mediumImpact();
     } catch (e) {
       _showError(e.toString());
@@ -436,7 +494,10 @@ class _EditBillScreenState extends ConsumerState<EditBillScreen> {
   void _showError(String msg) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Theme.of(context).colorScheme.error),
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ),
       );
     }
   }

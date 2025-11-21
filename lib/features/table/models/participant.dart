@@ -5,7 +5,8 @@ enum PaymentStatus {
   owing,
   pendingConfirmation,
   pendingDirectConfirmation,
-  paid;
+  paid,
+  failed;
 
   factory PaymentStatus.fromString(String value) {
     switch (value) {
@@ -16,11 +17,15 @@ enum PaymentStatus {
         return PaymentStatus.pendingConfirmation;
       case 'pending_direct_confirmation':
         return PaymentStatus.pendingDirectConfirmation;
+      case 'pending':
+        return PaymentStatus.pendingConfirmation;
       case 'paid':
       case 'paid_in_app':
       case 'paid_outside':
       case 'paid_direct':
         return PaymentStatus.paid;
+      case 'failed':
+        return PaymentStatus.failed;
       default:
         return PaymentStatus.owing;
     }
@@ -37,6 +42,8 @@ enum PaymentStatus {
         return AppColors.warmSpice; // Alert/Action Needed (same as pending)
       case PaymentStatus.paid:
         return AppColors.lushGreen; // Success
+      case PaymentStatus.failed:
+        return AppColors.warmSpice;
     }
   }
 
@@ -50,6 +57,8 @@ enum PaymentStatus {
         return 'Awaiting Direct Confirmation';
       case PaymentStatus.paid:
         return 'Paid';
+      case PaymentStatus.failed:
+        return 'Payment Failed';
     }
   }
 }
@@ -85,11 +94,12 @@ class Participant {
       avatarUrl: json['avatarUrl'] as String?,
 
       paymentStatus: PaymentStatus.fromString(
-        json['status'] as String? ?? json['paymentStatus'] as String? ?? 'owing',
+        json['status'] as String? ??
+            json['paymentStatus'] as String? ??
+            'owing',
       ),
 
       // Parse the method separate from statu
-
       totalOwed: (json['totalOwed'] as num?)?.toDouble() ?? 0.0,
       isHost: json['isHost'] as bool? ?? false,
     );
@@ -98,7 +108,9 @@ class Participant {
   // Helper for Avatar generation (Initials)
   String get initials {
     if (displayName.isEmpty) return '?';
-    final parts = displayName.trim().split(RegExp(r'\s+')); // Handle multiple spaces
+    final parts = displayName.trim().split(
+      RegExp(r'\s+'),
+    ); // Handle multiple spaces
     if (parts.length >= 2) {
       return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
     }
@@ -108,7 +120,8 @@ class Participant {
   // Helper: Does this participant require Host attention?
   bool get requiresAction =>
       paymentStatus == PaymentStatus.pendingConfirmation ||
-      paymentStatus == PaymentStatus.pendingDirectConfirmation;
+      paymentStatus == PaymentStatus.pendingDirectConfirmation ||
+      paymentStatus == PaymentStatus.failed;
 
   Map<String, dynamic> toJson() {
     return {
@@ -122,6 +135,9 @@ class Participant {
       'isHost': isHost,
     };
   }
+
+  // Mapping helper: business logic calls this claimedAmountZar.
+  double get claimedAmountZar => totalOwed;
 
   Participant copyWith({
     String? id,

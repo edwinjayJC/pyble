@@ -13,10 +13,7 @@ class PaymentRepository {
   }) async {
     return await apiClient.post(
       '/payments/initiate',
-      body: {
-        'tableId': tableId,
-        'amount': amount,
-      },
+      body: {'tableId': tableId, 'amount': amount},
       parser: (data) =>
           InitiatePaymentResponse.fromJson(data as Map<String, dynamic>),
     );
@@ -32,24 +29,14 @@ class PaymentRepository {
   }
 
   /// Mark payment as paid outside the app (POA flow)
-  Future<void> markPaidOutside({
-    required String tableId,
-  }) async {
-    await apiClient.post(
-      '/tables/$tableId/mark-paid-outside',
-      parser: (_) {},
-    );
+  Future<void> markPaidOutside({required String tableId}) async {
+    await apiClient.post('/tables/$tableId/mark-paid-outside', parser: (_) {});
   }
 
   /// Mark payment as paid directly to the restaurant
   /// (participant paid restaurant for their share, host doesn't need reimbursement)
-  Future<void> markPaidDirect({
-    required String tableId,
-  }) async {
-    await apiClient.post(
-      '/tables/$tableId/mark-paid-direct',
-      parser: (_) {},
-    );
+  Future<void> markPaidDirect({required String tableId}) async {
+    await apiClient.post('/tables/$tableId/mark-paid-direct', parser: (_) {});
   }
 
   /// Host confirms they received payment (for POA)
@@ -59,9 +46,7 @@ class PaymentRepository {
   }) async {
     await apiClient.post(
       '/tables/$tableId/confirm-payment',
-      body: {
-        'participantUserId': participantUserId,
-      },
+      body: {'participantUserId': participantUserId},
       parser: (_) {},
     );
   }

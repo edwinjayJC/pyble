@@ -55,10 +55,8 @@ class ParticipantStatusRow extends StatelessWidget {
                       children: [
                         Text(
                           participant.displayName,
-                          style:
-                              Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
                         ),
                         if (isHost) ...[
                           const SizedBox(width: AppSpacing.xs),
@@ -73,9 +71,7 @@ class ParticipantStatusRow extends StatelessWidget {
                             ),
                             child: Text(
                               'HOST',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelSmall
+                              style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: AppColors.deepBerry,
                                     fontWeight: FontWeight.bold,
@@ -89,8 +85,8 @@ class ParticipantStatusRow extends StatelessWidget {
                     Text(
                       '${AppConstants.currencySymbol}${participant.totalOwed.toStringAsFixed(2)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.darkFig.withOpacity(0.7),
-                          ),
+                        color: AppColors.darkFig.withOpacity(0.7),
+                      ),
                     ),
                   ],
                 ),
@@ -101,7 +97,8 @@ class ParticipantStatusRow extends StatelessWidget {
           ),
           // Confirm Button (for pending confirmation or pending direct confirmation)
           if ((participant.paymentStatus == PaymentStatus.pendingConfirmation ||
-               participant.paymentStatus == PaymentStatus.pendingDirectConfirmation) &&
+                  participant.paymentStatus ==
+                      PaymentStatus.pendingDirectConfirmation) &&
               onConfirmPayment != null) ...[
             const SizedBox(height: AppSpacing.sm),
             SizedBox(
@@ -127,17 +124,11 @@ class ParticipantStatusRow extends StatelessWidget {
       case PaymentStatus.paid:
         return (AppColors.lushGreen, 'PAID', Icons.check_circle);
       case PaymentStatus.pendingConfirmation:
-        return (
-          AppColors.warmSpice,
-          'PENDING',
-          Icons.pending,
-        );
+        return (AppColors.warmSpice, 'PENDING', Icons.pending);
       case PaymentStatus.pendingDirectConfirmation:
-        return (
-          AppColors.warmSpice,
-          'DIRECT',
-          Icons.store,
-        );
+        return (AppColors.warmSpice, 'DIRECT', Icons.store);
+      case PaymentStatus.failed:
+        return (AppColors.warmSpice, 'FAILED', Icons.error_outline);
       case PaymentStatus.owing:
         return (AppColors.darkFig, 'OWING', Icons.attach_money);
     }
@@ -167,9 +158,9 @@ class ParticipantStatusRow extends StatelessWidget {
           Text(
             text,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -214,11 +205,7 @@ class PaymentSummaryCard extends StatelessWidget {
                   AppColors.lushGreen,
                 ),
               ),
-              Container(
-                width: 1,
-                height: 50,
-                color: AppColors.paleGray,
-              ),
+              Container(width: 1, height: 50, color: AppColors.paleGray),
               Expanded(
                 child: _buildAmountColumn(
                   context,
@@ -237,7 +224,11 @@ class PaymentSummaryCard extends StatelessWidget {
             children: [
               _buildCountChip(context, 'Paid', paidCount, AppColors.lushGreen),
               _buildCountChip(
-                  context, 'Pending', pendingCount, AppColors.warmSpice),
+                context,
+                'Pending',
+                pendingCount,
+                AppColors.warmSpice,
+              ),
               _buildCountChip(context, 'Owing', owingCount, AppColors.paleGray),
             ],
           ),
@@ -257,16 +248,16 @@ class PaymentSummaryCard extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.darkFig.withOpacity(0.7),
-              ),
+            color: AppColors.darkFig.withOpacity(0.7),
+          ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           '${AppConstants.currencySymbol}${amount.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
+            color: color,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );
@@ -292,16 +283,13 @@ class PaymentSummaryCard extends StatelessWidget {
           child: Text(
             count.toString(),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                ),
+              color: color,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall,
-        ),
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
       ],
     );
   }

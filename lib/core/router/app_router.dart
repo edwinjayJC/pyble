@@ -15,7 +15,6 @@ import '../../features/auth/providers/user_profile_provider.dart';
 import '../../features/auth/screens/auth_screen.dart';
 import '../../features/auth/screens/email_verification_pending_screen.dart';
 import '../../features/onboarding/screens/onboarding_screen.dart';
-import '../../features/table/screens/active_tables_screen.dart';
 import '../../features/table/screens/create_table_screen.dart';
 import '../../features/table/screens/host_invite_screen.dart';
 import '../../features/table/screens/join_table_screen.dart';
@@ -26,12 +25,12 @@ import '../../features/payments/screens/host_dashboard_screen.dart';
 import '../../features/payments/screens/participant_payment_screen.dart';
 import '../../features/payments/screens/payment_webview_screen.dart';
 import '../../features/payments/screens/payment_processing_screen.dart';
-import '../../features/payments/screens/payment_method_placeholder.dart';
-import '../../features/payments/models/payment_record.dart';
+import '../../features/payments/screens/payment_methods_screen.dart';
+import '../../features/payments/screens/payment_method_webview_screen.dart';
+import '../../features/payments/models/paystack_models.dart';
 import '../../features/history/screens/history_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/splash_screen.dart';
-import '../widgets/app_drawer.dart';
 
 const String _termsContent = '''
 TERMS AND CONDITIONS
@@ -155,10 +154,7 @@ If you have any questions about these Terms or the Service, please contact us at
 class TermsScreen extends ConsumerStatefulWidget {
   final bool requireAcceptance;
 
-  const TermsScreen({
-    super.key,
-    this.requireAcceptance = false,
-  });
+  const TermsScreen({super.key, this.requireAcceptance = false});
 
   @override
   ConsumerState<TermsScreen> createState() => _TermsScreenState();
@@ -214,10 +210,7 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  child: Text(
-                    _termsContent,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  child: Text(_termsContent, style: theme.textTheme.bodyMedium),
                 ),
               ),
               if (showAcceptButton) ...[
@@ -232,8 +225,9 @@ class _TermsScreenState extends ConsumerState<TermsScreen> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text('Accept & Continue'),
@@ -790,10 +784,7 @@ class _DisplayNameSettingsCard extends ConsumerWidget {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.badge_outlined),
-                  title: Text(
-                    currentName,
-                    style: theme.textTheme.titleMedium,
-                  ),
+                  title: Text(currentName, style: theme.textTheme.titleMedium),
                   subtitle: const Text('Tap edit to change your display name.'),
                   trailing: TextButton(
                     onPressed: () => _editName(context, ref, currentName),
@@ -819,23 +810,21 @@ class _DisplayNameSettingsCard extends ConsumerWidget {
     );
 
     final trimmed = newName?.trim();
-    if (trimmed == null ||
-        trimmed.isEmpty ||
-        trimmed == currentName.trim()) {
+    if (trimmed == null || trimmed.isEmpty || trimmed == currentName.trim()) {
       return;
     }
 
     try {
       await ref.read(userProfileProvider.notifier).updateDisplayName(trimmed);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Display name updated')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Display name updated')));
     } catch (error) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unable to update name: $error')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to update name: $error')));
     }
   }
 }
@@ -872,9 +861,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
         controller: _controller,
         autofocus: true,
         textCapitalization: TextCapitalization.words,
-        decoration: const InputDecoration(
-          labelText: 'Display name',
-        ),
+        decoration: const InputDecoration(labelText: 'Display name'),
       ),
       actions: [
         TextButton(
@@ -882,8 +869,7 @@ class _DisplayNameDialogState extends State<_DisplayNameDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () =>
-              Navigator.of(context).pop(_controller.text.trim()),
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
           child: const Text('Save'),
         ),
       ],
@@ -956,7 +942,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       final prefs = await SharedPreferences.getInstance();
       final tutorialSeen = prefs.getBool(AppConstants.tutorialSeenKey) ?? false;
 
-      if (!tutorialSeen && !isOnboardingRoute && !isVerifyRoute && !isSplashRoute) {
+      if (!tutorialSeen &&
+          !isOnboardingRoute &&
+          !isVerifyRoute &&
+          !isSplashRoute) {
         return RoutePaths.onboarding;
       }
 
@@ -1017,7 +1006,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RoutePaths.paymentMethod,
         name: RouteNames.paymentMethod,
-        builder: (context, state) => const PaymentMethodPlaceholderScreen(),
+        builder: (context, state) => const PaymentMethodsScreen(),
+      ),
+      GoRoute(
+        path: PaymentMethodWebviewScreen.routePath,
+        builder: (context, state) {
+          final redirectUrl = state.extra as String? ?? '';
+          return PaymentMethodWebviewScreen(redirectUrl: redirectUrl);
+        },
       ),
       GoRoute(
         path: RoutePaths.history,
@@ -1108,7 +1104,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: RouteNames.paymentWebview,
         builder: (context, state) {
           final tableId = state.pathParameters['tableId']!;
-          final paymentResponse = state.extra as InitiatePaymentResponse;
+          final paymentResponse = state.extra as PaystackInitializeResponse;
           return PaymentWebviewScreen(
             tableId: tableId,
             paymentResponse: paymentResponse,
@@ -1121,14 +1117,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final tableId = state.pathParameters['tableId']!;
           final extra = state.extra as Map<String, dynamic>?;
-          final paymentId = extra?['paymentId'] as String? ?? '';
+          final paymentReference = extra?['paymentReference'] as String? ?? '';
           return PaymentProcessingScreen(
             tableId: tableId,
-            paymentId: paymentId,
+            paymentReference: paymentReference,
           );
         },
       ),
     ],
   );
 });
-

@@ -6,7 +6,6 @@ import 'package:pyble/features/auth/providers/user_profile_provider.dart';
 // Core Imports
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_radius.dart';
 import '../../../core/constants/route_names.dart';
 import '../../../core/providers/supabase_provider.dart';
 
@@ -50,7 +49,7 @@ class AppDrawer extends ConsumerWidget {
                 _buildDrawerItem(
                   context,
                   icon: Icons.account_balance,
-                  label: "Payment Method",
+                  label: "Payment Methods",
                   onTap: () {
                     Navigator.pop(context);
                     context.push(RoutePaths.paymentMethod);
@@ -138,7 +137,10 @@ class AppDrawer extends ConsumerWidget {
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 2,
+              ),
             ),
             child: CircleAvatar(
               radius: 32,
@@ -149,13 +151,13 @@ class AppDrawer extends ConsumerWidget {
                   : null,
               child: (profile?.avatarUrl == null)
                   ? Text(
-                initials,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.deepBerry,
-                ),
-              )
+                      initials,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.deepBerry,
+                      ),
+                    )
                   : null,
             ),
           ),
@@ -190,13 +192,12 @@ class AppDrawer extends ConsumerWidget {
   }
 
   Widget _buildDrawerItem(
-      BuildContext context, {
-        required IconData icon,
-        required String label,
-        required VoidCallback onTap,
-        Color? color,
-      }) {
-
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
     final theme = Theme.of(context);
     // FIX: Default color adapts to OnSurface (Dark Fig or White)
     final effectiveColor = color ?? theme.colorScheme.onSurface;
@@ -230,14 +231,17 @@ class AppDrawer extends ConsumerWidget {
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             // FIX: Adaptive Text Color
-            child: Text("Cancel", style: TextStyle(color: theme.colorScheme.onSurface)),
+            child: Text(
+              "Cancel",
+              style: TextStyle(color: theme.colorScheme.onSurface),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             // FIX: Use Error color for destructive action
             style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.error,
-                foregroundColor: theme.colorScheme.onError
+              backgroundColor: theme.colorScheme.error,
+              foregroundColor: theme.colorScheme.onError,
             ),
             child: const Text("Sign Out"),
           ),
