@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/route_names.dart';
 import '../../../core/theme/app_colors.dart';
@@ -20,17 +21,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     OnboardingPage(
       icon: Icons.restaurant_menu,
       title: 'Welcome to Pyble',
-      description: 'Split restaurant bills easily with friends. No more awkward calculations or IOUs.',
+      description:
+          'Split restaurant bills easily with friends. No more awkward calculations or IOUs.',
     ),
     OnboardingPage(
       icon: Icons.qr_code_scanner,
       title: 'Scan & Split',
-      description: 'Scan your bill with AI-powered OCR, or add items manually. Everyone claims what they had.',
+      description:
+          'Scan your bill with AI-powered OCR, or add items manually. Everyone claims what they had.',
     ),
     OnboardingPage(
       icon: Icons.payments,
       title: 'Get Reimbursed',
-      description: 'Participants pay you back in-app or outside. Track who owes what in real-time.',
+      description:
+          'Participants pay you back in-app or outside. Track who owes what in real-time.',
     ),
   ];
 
@@ -42,7 +46,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(AppConstants.tutorialSeenKey, true);
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId != null) {
+      await prefs.setBool('${AppConstants.tutorialSeenKey}_$userId', true);
+    } else {
+      await prefs.setBool(AppConstants.tutorialSeenKey, true);
+    }
     if (mounted) {
       context.go(RoutePaths.auth);
     }
@@ -92,28 +101,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               color: AppColors.lightBerry,
               shape: BoxShape.circle,
             ),
-            child: Icon(
-              page.icon,
-              size: 60,
-              color: AppColors.deepBerry,
-            ),
+            child: Icon(page.icon, size: 60, color: AppColors.deepBerry),
           ),
           const SizedBox(height: 48),
           Text(
             page.title,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.darkFig,
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppColors.darkFig,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
             page.description,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.darkFig.withOpacity(0.7),
-                  height: 1.5,
-                ),
+              color: AppColors.darkFig.withOpacity(0.7),
+              height: 1.5,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -161,9 +166,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: _completeOnboarding,
                   child: Text(
                     'Skip',
-                    style: TextStyle(
-                      color: AppColors.darkFig.withOpacity(0.6),
-                    ),
+                    style: TextStyle(color: AppColors.darkFig.withOpacity(0.6)),
                   ),
                 ),
                 const Spacer(),
