@@ -77,6 +77,15 @@ class AppDrawer extends ConsumerWidget {
                 ),
                 _buildDrawerItem(
                   context,
+                  icon: Icons.school_outlined,
+                  label: "Tutorial",
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(RoutePaths.onboarding);
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
                   icon: Icons.description_outlined,
                   label: "Terms & Conditions",
                   onTap: () {
