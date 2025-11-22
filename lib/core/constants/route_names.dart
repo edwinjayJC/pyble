@@ -18,6 +18,7 @@ class RouteNames {
   static const String paymentProcessing = 'payment-processing';
   static const String paymentMethod = 'payment-method';
   static const String history = 'history';
+  static const String friends = 'friends';
   static const String verifyEmail = 'verify-email';
 }
 
@@ -41,5 +42,6 @@ class RoutePaths {
   static const String paymentProcessing = '/payment-processing/:tableId';
   static const String paymentMethod = '/payment-method';
   static const String history = '/history';
+  static const String friends = '/friends';
   static const String verifyEmail = '/verify-email';
 }

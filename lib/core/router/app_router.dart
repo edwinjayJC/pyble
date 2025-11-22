@@ -28,6 +28,7 @@ import '../../features/payments/screens/payment_processing_screen.dart';
 import '../../features/payments/screens/payment_methods_screen.dart';
 import '../../features/payments/screens/payment_method_webview_screen.dart';
 import '../../features/payments/models/paystack_models.dart';
+import '../../features/friends/screens/friends_screen.dart';
 import '../../features/history/screens/history_screen.dart';
 import '../../features/home/screens/home_screen.dart';
 import '../../features/home/screens/splash_screen.dart';
@@ -1036,6 +1037,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RoutePaths.history,
         name: RouteNames.history,
         builder: (context, state) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: RoutePaths.friends,
+        name: RouteNames.friends,
+        builder: (context, state) => const FriendsScreen(),
       ),
       // GoRoute(
       //   path: RoutePaths.activeTables,

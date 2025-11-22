@@ -50,6 +50,15 @@ class AppDrawer extends ConsumerWidget {
               children: [
                 _buildDrawerItem(
                   context,
+                  icon: Icons.people_outline,
+                  label: "Friends",
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push(RoutePaths.friends);
+                  },
+                ),
+                _buildDrawerItem(
+                  context,
                   icon: Icons.account_balance,
                   label: "Payment Methods",
                   onTap: () {
