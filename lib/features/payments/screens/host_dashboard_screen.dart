@@ -4,7 +4,6 @@ import 'package:flutter/services.dart'; // For Haptics
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:pyble/features/payments/providers/payment_provider.dart';
-import '../models/paystack_models.dart';
 
 // Core Imports
 import '../../../core/theme/app_colors.dart';
@@ -17,6 +16,8 @@ import '../../../core/providers/supabase_provider.dart';
 import '../../table/providers/table_provider.dart';
 import '../../table/models/participant.dart';
 import '../../table/models/table_session.dart'; // For PaymentStatus
+import '../../table/repository/table_repository.dart';
+import '../repository/payment_repository.dart';
 
 class HostDashboardScreen extends ConsumerStatefulWidget {
   final String tableId;
@@ -24,12 +25,12 @@ class HostDashboardScreen extends ConsumerStatefulWidget {
   const HostDashboardScreen({super.key, required this.tableId});
 
   @override
-  ConsumerState<HostDashboardScreen> createState() =>
-      _HostDashboardScreenState();
+  ConsumerState<HostDashboardScreen> createState() => _HostDashboardScreenState();
 }
 
 class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
   bool _isProcessing = false;
+  Timer? _pollingTimer;
 
   @override
   void initState() {
@@ -49,6 +50,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     return ref.refresh(currentTableProvider.notifier).loadTable(widget.tableId);
   }
 
+
   @override
   Widget build(BuildContext context) {
     final tableAsync = ref.watch(currentTableProvider);
@@ -64,8 +66,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         title: Text(
           'Collection Dashboard',
           style: TextStyle(
-            color: theme.colorScheme.onSurface,
-            fontWeight: FontWeight.bold,
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.bold
           ),
         ),
         leading: IconButton(
@@ -83,11 +85,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                 value: 'unlock',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.lock_open,
-                      color: theme.colorScheme.primary,
-                      size: 20,
-                    ),
+                    Icon(Icons.lock_open, color: theme.colorScheme.primary, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Unlock Bill',
@@ -109,14 +107,12 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
           // Find Host (Me)
           final host = participants.firstWhere(
-            (p) => p.userId == currentUser?.id,
+                (p) => p.userId == currentUser?.id,
             orElse: () => participants.first,
           );
 
           // Separate guests from host
-          final guests = participants
-              .where((p) => p.userId != host.userId)
-              .toList();
+          final guests = participants.where((p) => p.userId != host.userId).toList();
 
           return RefreshIndicator(
             color: theme.colorScheme.primary,
@@ -167,12 +163,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   const SizedBox(height: 40),
 
                   // 4. SETTLE BUTTON
-                  _buildSettleButton(
-                    context,
-                    tableData.table,
-                    participants,
-                    host,
-                  ),
+                  _buildSettleButton(context, participants),
 
                   const SizedBox(height: 40),
                 ],
@@ -180,19 +171,14 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             ),
           );
         },
-        loading: () => Center(
-          child: CircularProgressIndicator(color: theme.colorScheme.primary),
-        ),
+        loading: () => Center(child: CircularProgressIndicator(color: theme.colorScheme.primary)),
         error: (e, _) => Center(child: Text("Error: $e")),
       ),
     );
   }
 
   // === 1. The Ledger Summary ===
-  Widget _buildLedgerSummary(
-    BuildContext context,
-    List<Participant> participants,
-  ) {
+  Widget _buildLedgerSummary(BuildContext context, List<Participant> participants) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -237,20 +223,16 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               Text(
                 "COLLECTED",
                 style: TextStyle(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 "${AppConstants.currencySymbol}${collected.toStringAsFixed(2)}",
-                style: const TextStyle(
-                  color: AppColors.lushGreen,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: const TextStyle(color: AppColors.lushGreen, fontSize: 28, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -264,10 +246,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               Text(
                 "MISSING",
                 style: TextStyle(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1
                 ),
               ),
               const SizedBox(height: 4),
@@ -276,21 +258,17 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
                   if (pending > 0)
                     const Padding(
                       padding: EdgeInsets.only(right: 6),
-                      child: Icon(
-                        Icons.priority_high,
-                        color: AppColors.warmSpice,
-                        size: 18,
-                      ),
+                      child: Icon(Icons.priority_high, color: AppColors.warmSpice, size: 18),
                     ),
                   Text(
                     "${AppConstants.currencySymbol}${(pending + outstanding).toStringAsFixed(2)}",
                     style: TextStyle(
                       // Use Theme Text Color for 0, Spice for >0
-                      color: (pending + outstanding) == 0
-                          ? theme.colorScheme.onSurface.withOpacity(0.4)
-                          : AppColors.warmSpice,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
+                        color: (pending + outstanding) == 0
+                            ? theme.colorScheme.onSurface.withOpacity(0.4)
+                            : AppColors.warmSpice,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold
                     ),
                   ),
                 ],
@@ -313,85 +291,52 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         color: theme.colorScheme.surface,
         borderRadius: AppRadius.allMd,
         border: Border.all(
-          color: isPaid
-              ? AppColors.lushGreen.withOpacity(0.3)
-              : theme.dividerColor,
+            color: isPaid ? AppColors.lushGreen.withOpacity(0.3) : theme.dividerColor
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2)
           ),
         ],
       ),
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         leading: CircleAvatar(
-          backgroundColor: isPaid
-              ? AppColors.lightGreen
-              : theme.colorScheme.surfaceContainerHighest,
+          backgroundColor: isPaid ? AppColors.lightGreen : theme.colorScheme.surfaceContainerHighest,
           child: Icon(
-            Icons.person,
-            color: isPaid ? AppColors.lushGreen : theme.colorScheme.onSurface,
+              Icons.person,
+              color: isPaid ? AppColors.lushGreen : theme.colorScheme.onSurface
           ),
         ),
         title: Text(
-          "My Items",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onSurface,
-          ),
+            "My Items",
+            style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)
         ),
         subtitle: Text(
           isPaid ? "Accounted for" : "Deduct from total bill",
-          style: TextStyle(
-            fontSize: 12,
-            color: theme.colorScheme.onSurface.withOpacity(0.6),
-          ),
+          style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withOpacity(0.6)),
         ),
         trailing: isPaid
             ? Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.lightGreen,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  "Done",
-                  style: TextStyle(
-                    color: AppColors.lushGreen,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              )
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: AppColors.lightGreen, borderRadius: BorderRadius.circular(12)),
+          child: const Text("Done", style: TextStyle(color: AppColors.lushGreen, fontWeight: FontWeight.bold, fontSize: 12)),
+        )
             : SizedBox(
-                width: 120,
-                child: ElevatedButton(
-                  onPressed: _isProcessing
-                      ? null
-                      : () => _confirmPayment(host, isSelf: true),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: theme
-                        .colorScheme
-                        .onSurface, // Black/White based on theme
-                    foregroundColor: theme.colorScheme.surface, // Inverse text
-                    padding: EdgeInsets.zero,
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    "Account",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
+          width: 120,
+          child: ElevatedButton(
+            onPressed: _isProcessing ? null : () => _confirmPayment(host, isSelf: true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.onSurface, // Black/White based on theme
+              foregroundColor: theme.colorScheme.surface, // Inverse text
+              padding: EdgeInsets.zero,
+              elevation: 0,
+            ),
+            child: const Text("Account", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+        ),
       ),
     );
   }
@@ -466,19 +411,10 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         color: theme.colorScheme.surface,
         borderRadius: AppRadius.allMd,
         border: showActionButton && !isManualForcePay
-            ? Border.all(
-                color: isDirectPayment
-                    ? AppColors.warmSpice
-                    : AppColors.warmSpice,
-                width: 1.5,
-              )
+            ? Border.all(color: isDirectPayment ? AppColors.warmSpice : AppColors.warmSpice, width: 1.5)
             : null,
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: ListTile(
@@ -486,45 +422,26 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         leading: Stack(
           children: [
             CircleAvatar(
-              backgroundImage: guest.avatarUrl != null
-                  ? NetworkImage(guest.avatarUrl!)
-                  : null,
+              backgroundImage: guest.avatarUrl != null ? NetworkImage(guest.avatarUrl!) : null,
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
               child: guest.avatarUrl == null
-                  ? Text(
-                      guest.initials,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    )
+                  ? Text(guest.initials, style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface))
                   : null,
             ),
             if (guest.paymentStatus == PaymentStatus.paid)
               Positioned(
-                right: -2,
-                bottom: -2,
+                right: -2, bottom: -2,
                 child: Container(
                   padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle,
-                    color: AppColors.lushGreen,
-                    size: 16,
-                  ),
+                  decoration: BoxDecoration(color: theme.colorScheme.surface, shape: BoxShape.circle),
+                  child: const Icon(Icons.check_circle, color: AppColors.lushGreen, size: 16),
                 ),
               ),
           ],
         ),
         title: Text(
           guest.displayName,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.onSurface,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600, color: theme.colorScheme.onSurface),
         ),
         subtitle: Row(
           children: [
@@ -532,87 +449,57 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
             const SizedBox(width: 4),
             Text(
               statusText,
-              style: TextStyle(
-                fontSize: 12,
-                color: statusColor,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: 12, color: statusColor, fontWeight: FontWeight.w500),
             ),
           ],
         ),
         trailing: showActionButton
             ? SizedBox(
-                width: 100,
-                child: ElevatedButton(
-                  onPressed: _isProcessing
-                      ? null
-                      : () => _confirmPayment(
-                          guest,
-                          isManualForce: isManualForcePay,
-                          isDirectPayment: isDirectPayment,
-                        ),
-                  style: ElevatedButton.styleFrom(
-                    // Manual Pay = Neutral Button. Pending/Direct = Action Button.
-                    backgroundColor: isManualForcePay
-                        ? theme.colorScheme.onSurface
-                        : AppColors.lushGreen,
-                    foregroundColor: isManualForcePay
-                        ? theme.colorScheme.surface
-                        : Colors.white,
-                    padding: EdgeInsets.zero,
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    isManualForcePay ? "Mark Paid" : "Confirm",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              )
+          width: 100,
+          child: ElevatedButton(
+            onPressed: _isProcessing ? null : () => _confirmPayment(guest, isManualForce: isManualForcePay, isDirectPayment: isDirectPayment),
+            style: ElevatedButton.styleFrom(
+              // Manual Pay = Neutral Button. Pending/Direct = Action Button.
+              backgroundColor: isManualForcePay ? theme.colorScheme.onSurface : AppColors.lushGreen,
+              foregroundColor: isManualForcePay ? theme.colorScheme.surface : Colors.white,
+              padding: EdgeInsets.zero,
+              elevation: 0,
+            ),
+            child: Text(
+                isManualForcePay ? "Mark Paid" : "Confirm",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)
+            ),
+          ),
+        )
             : Text(
-                "${AppConstants.currencySymbol}${guest.totalOwed.toStringAsFixed(2)}",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: guest.paymentStatus == PaymentStatus.paid
-                      ? AppColors.lushGreen
-                      : theme.colorScheme.onSurface,
-                  fontSize: 16,
-                ),
-              ),
+          "${AppConstants.currencySymbol}${guest.totalOwed.toStringAsFixed(2)}",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: guest.paymentStatus == PaymentStatus.paid ? AppColors.lushGreen : theme.colorScheme.onSurface,
+            fontSize: 16,
+          ),
+        ),
       ),
     );
   }
 
   // === 4. Settle Button ===
-  Widget _buildSettleButton(
-    BuildContext context,
-    TableSession table,
-    List<Participant> participants,
-    Participant host,
-  ) {
+  Widget _buildSettleButton(BuildContext context, List<Participant> participants) {
     final theme = Theme.of(context);
-    final allPaid = participants.every(
-      (p) => p.paymentStatus == PaymentStatus.paid,
-    );
-    final readyForPayout =
-        table.status == TableStatus.readyForHostSettlement || allPaid;
-    final isSettled = table.status == TableStatus.settled;
-    final isDisabled = !readyForPayout || isSettled;
+    final allPaid = participants.every((p) => p.paymentStatus == PaymentStatus.paid);
 
     return Opacity(
-      opacity: isDisabled ? 0.5 : 1.0,
+      opacity: allPaid ? 1.0 : 0.5,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: ElevatedButton(
-          onPressed: isDisabled ? null : () => _triggerHostPayout(host),
+          onPressed: allPaid ? _settleTable : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: theme.colorScheme.primary,
             foregroundColor: theme.colorScheme.onPrimary,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            elevation: isDisabled ? 0 : 4,
+            elevation: allPaid ? 4 : 0,
             shape: const RoundedRectangleBorder(borderRadius: AppRadius.allMd),
           ),
           child: Row(
@@ -621,15 +508,8 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
               const Icon(Icons.done_all),
               const SizedBox(width: 8),
               Text(
-                isSettled
-                    ? "Table Settled"
-                    : readyForPayout
-                    ? "Send Host Payout"
-                    : "Waiting for Payments...",
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                allPaid ? "Close Out & Archive" : "Waiting for Payments...",
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -640,12 +520,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
 
   // === ACTIONS ===
 
-  Future<void> _confirmPayment(
-    Participant p, {
-    bool isSelf = false,
-    bool isManualForce = false,
-    bool isDirectPayment = false,
-  }) async {
+  Future<void> _confirmPayment(Participant p, {bool isSelf = false, bool isManualForce = false, bool isDirectPayment = false}) async {
     HapticFeedback.mediumImpact();
     setState(() => _isProcessing = true);
 
@@ -686,10 +561,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     } finally {
@@ -697,84 +569,38 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
     }
   }
 
-  Future<void> _triggerHostPayout(Participant host) async {
+  Future<void> _settleTable() async {
     final theme = Theme.of(context);
 
-    try {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text("Send Host Payout"),
-          content: const Text(
-            "We'll trigger a Paystack transfer to the host so they can pay the restaurant.",
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Close Out Table"),
+        content: const Text("This will archive the bill and move it to history. Everyone has paid."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text("Cancel", style: TextStyle(color: theme.colorScheme.onSurface)),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: Text(
-                "Cancel",
-                style: TextStyle(color: theme.colorScheme.onSurface),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.colorScheme.primary,
-              ),
-              child: Text(
-                "Send",
-                style: TextStyle(color: theme.colorScheme.onPrimary),
-              ),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true) return;
-
-      setState(() => _isProcessing = true);
-      final paystackService = ref.read(paystackPaymentServiceProvider);
-      final response = await paystackService.triggerHostPayout(
-        tableId: widget.tableId,
-        hostDinerId: host.id,
-      );
-
-      await _refreshData();
-
-      if (!mounted) return;
-      final payoutStatus = response.hostPayout.status;
-      final settled =
-          payoutStatus == HostPayoutStatus.success ||
-          response.tableStatus == 'settled';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            settled
-                ? "Host payout sent. Table settled."
-                : "Host payout ${payoutStatus.name}.",
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: theme.colorScheme.primary),
+            child: Text("Archive", style: TextStyle(color: theme.colorScheme.onPrimary)),
           ),
-          backgroundColor: settled
-              ? AppColors.lushGreen
-              : theme.colorScheme.primary,
-        ),
-      );
+        ],
+      ),
+    );
 
-      if (settled) {
-        context.go('/home');
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error triggering payout: $e'),
-            backgroundColor: theme.colorScheme.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
+    if (confirmed == true) {
+      try {
+        await ref.read(currentTableProvider.notifier).settleTable();
+        if (mounted) context.go('/home');
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: theme.colorScheme.error),
+          );
+        }
       }
     }
   }
@@ -788,7 +614,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
         title: const Text('Cancel Table?'),
         content: const Text(
           'Are you sure you want to cancel this table? '
-          'All participants will be notified and this action cannot be undone.',
+              'All participants will be notified and this action cannot be undone.',
         ),
         actions: [
           TextButton(
@@ -815,10 +641,7 @@ class _HostDashboardScreenState extends ConsumerState<HostDashboardScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: $e'),
-              backgroundColor: theme.colorScheme.error,
-            ),
+            SnackBar(content: Text('Error: $e'), backgroundColor: theme.colorScheme.error),
           );
         }
       }
