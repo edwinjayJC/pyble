@@ -8,7 +8,7 @@
 PRODUCT_NAME = pyble
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.pyble.pyble
+PRODUCT_BUNDLE_IDENTIFIER = com.pyble
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 com.pyble. All rights reserved.

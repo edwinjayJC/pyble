@@ -29,7 +29,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="com.pyble.pyble"
+                    android:scheme="com.pyble"
                     android:host="login" />
             </intent-filter>
             <!-- Deep link for table joining -->
@@ -38,7 +38,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="com.pyble.pyble"
+                    android:scheme="com.pyble"
                     android:host="join" />
             </intent-filter>
         </activity>

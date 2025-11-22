@@ -27,7 +27,7 @@ class AppConstants {
   // Secrets (PAYSTACK_SECRET_KEY, PAYSTACK_WEBHOOK_SECRET) must stay on the backend only.
 
   // Deep Link Configuration
-  static const String appScheme = 'com.pyble.pyble';
+  static const String appScheme = 'com.pyble';
   static const String joinPath = 'join';
 
   // App Info

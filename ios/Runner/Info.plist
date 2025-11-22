@@ -51,7 +51,7 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>com.pyble.pyble</string>
+			<string>com.pyble</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>pyble</string>
