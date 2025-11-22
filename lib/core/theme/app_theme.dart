@@ -150,6 +150,9 @@ class AppTheme {
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
       ),
 
@@ -297,7 +300,7 @@ class AppTheme {
           textStyle: GoogleFonts.inter(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-          ),
+            ),
           elevation: 0,
           disabledBackgroundColor: AppColors.darkSurface,
           disabledForegroundColor: AppColors.darkTextDisabled,
@@ -342,6 +345,20 @@ class AppTheme {
                 return AppColors.brightBerry;
               }),
             ),
+      ),
+
+      // Text Buttons (match light theme structure to avoid lerp issues)
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.brightBerry,
+          textStyle: GoogleFonts.inter(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+          minimumSize: const Size(0, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
       ),
 
       // Input Decoration (Subtle borders, clear fill)

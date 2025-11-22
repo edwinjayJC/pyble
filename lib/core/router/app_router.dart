@@ -784,6 +784,11 @@ class _DisplayNameSettingsCard extends ConsumerWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 trailing: TextButton(
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 36),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: () => ref.refresh(userProfileProvider),
                   child: const Text('Retry'),
                 ),
@@ -796,6 +801,11 @@ class _DisplayNameSettingsCard extends ConsumerWidget {
                   title: Text(currentName, style: theme.textTheme.titleMedium),
                   subtitle: const Text('Tap edit to change your display name.'),
                   trailing: TextButton(
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
                     onPressed: () => _editName(context, ref, currentName),
                     child: const Text('Edit'),
                   ),
