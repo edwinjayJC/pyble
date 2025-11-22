@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../providers/table_provider.dart';
+import '../repository/table_repository.dart';
 
 class JoinTableScreen extends ConsumerStatefulWidget {
   final String? initialCode;
@@ -24,7 +26,10 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen>
   final _codeController = TextEditingController();
   bool _isLoading = false;
   bool _showScanner = false; // Mode Toggle
+  bool _requestPending = false; // Join request pending approval
   String? _errorMessage;
+  String? _pendingCode; // Code for polling
+  Timer? _pollingTimer;
 
   // Animation for error shake or transitions could go here
   late AnimationController _animController;
@@ -48,6 +53,7 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen>
 
   @override
   void dispose() {
+    _pollingTimer?.cancel();
     _codeController.dispose();
     _animController.dispose();
     super.dispose();
@@ -62,18 +68,29 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen>
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _requestPending = false;
     });
 
     try {
-      await ref
+      final result = await ref
           .read(currentTableProvider.notifier)
           .joinTableByCode(code.toUpperCase());
 
       if (mounted) {
-        HapticFeedback.heavyImpact(); // Success thud
-        final tableData = ref.read(currentTableProvider).valueOrNull;
-        if (tableData != null) {
-          context.go('/table/${tableData.table.id}/claim');
+        if (result.isSuccess && result.table != null) {
+          // Friend - auto-joined
+          HapticFeedback.heavyImpact(); // Success thud
+          context.go('/table/${result.table!.id}/claim');
+        } else if (result.isPending) {
+          // Non-friend - request pending
+          HapticFeedback.mediumImpact();
+          setState(() {
+            _requestPending = true;
+            _pendingCode = code.toUpperCase();
+            _isLoading = false;
+          });
+          // Start polling for acceptance
+          _startPolling();
         }
       }
     } catch (e) {
@@ -82,7 +99,49 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen>
         _errorMessage = e.toString().replaceAll('Exception: ', '');
       });
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && !_requestPending) setState(() => _isLoading = false);
+    }
+  }
+
+  void _startPolling() {
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _pollForAcceptance(),
+    );
+  }
+
+  Future<void> _pollForAcceptance() async {
+    if (_pendingCode == null || !mounted) return;
+
+    try {
+      final result = await ref
+          .read(currentTableProvider.notifier)
+          .joinTableByCode(_pendingCode!);
+
+      if (result.isSuccess && result.table != null) {
+        // Request was accepted!
+        _pollingTimer?.cancel();
+        if (mounted) {
+          HapticFeedback.heavyImpact();
+          context.go('/table/${result.table!.id}/claim');
+        }
+      }
+      // If still pending, continue polling
+    } catch (e) {
+      // Check if rejected (blocked or other error)
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('blocked') || errorMsg.contains('rejected')) {
+        _pollingTimer?.cancel();
+        if (mounted) {
+          HapticFeedback.vibrate();
+          setState(() {
+            _requestPending = false;
+            _errorMessage = 'Your request was declined';
+          });
+        }
+      }
+      // Other errors - continue polling
     }
   }
 
@@ -158,7 +217,86 @@ class _JoinTableScreenState extends ConsumerState<JoinTableScreen>
       extendBodyBehindAppBar: _showScanner,
       body: AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),
-        child: _showScanner ? _buildScannerView() : _buildManualEntryView(),
+        child: _requestPending
+            ? _buildPendingRequestView()
+            : _showScanner
+                ? _buildScannerView()
+                : _buildManualEntryView(),
+      ),
+    );
+  }
+
+  // === VIEW: PENDING REQUEST (Waiting for Host Approval) ===
+  Widget _buildPendingRequestView() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.hourglass_top,
+                size: 64,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 32),
+            Text(
+              "Request Sent!",
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              "Waiting for host approval...",
+              style: TextStyle(
+                fontSize: 16,
+                color: colorScheme.onSurface.withOpacity(0.7),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "The host will review your request to join the table. You'll be notified when they respond.",
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.onSurface.withOpacity(0.5),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 48),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 48),
+            TextButton(
+              onPressed: () => context.pop(),
+              child: Text(
+                "Go Back",
+                style: TextStyle(
+                  color: colorScheme.onSurface.withOpacity(0.7),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

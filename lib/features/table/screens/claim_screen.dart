@@ -15,6 +15,8 @@ import '../providers/table_provider.dart';
 import '../models/table_session.dart';
 import '../models/bill_item.dart';
 import '../models/split_request.dart';
+import '../models/join_request.dart';
+import '../models/blocked_user.dart';
 import '../widgets/bill_item_row.dart';
 import '../widgets/complex_split_sheet.dart';
 import '../widgets/split_request_sheet.dart';
@@ -30,6 +32,7 @@ class ClaimScreen extends ConsumerStatefulWidget {
 }
 
 class _ClaimScreenState extends ConsumerState<ClaimScreen> {
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +74,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         context,
         tableDataAsync.valueOrNull?.table.code,
         isHost,
+        tableDataAsync.valueOrNull,
       ),
       body: tableDataAsync.when(
         data: (tableData) {
@@ -154,6 +158,7 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     BuildContext context,
     String? tableCode,
     bool isHost,
+    dynamic tableData,
   ) {
     final theme = Theme.of(context);
 
@@ -203,6 +208,54 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         ],
       ),
       actions: [
+        // Join Requests Button (for host only)
+        if (isHost)
+          Consumer(
+            builder: (context, ref, child) {
+              final requestsAsync = ref.watch(
+                pendingJoinRequestsProvider(widget.tableId),
+              );
+              return requestsAsync.when(
+                data: (requests) {
+                  if (requests.isEmpty) return const SizedBox.shrink();
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.person_add,
+                          color: AppColors.lushGreen,
+                        ),
+                        onPressed: () =>
+                            _showJoinRequestsSheet(context, requests),
+                        tooltip: 'Join Requests',
+                      ),
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: AppColors.lushGreen,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '${requests.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+                loading: () => const SizedBox.shrink(),
+                error: (_, __) => const SizedBox.shrink(),
+              );
+            },
+          ),
         // Split Requests Button (for non-hosts)
         if (!isHost)
           Consumer(
@@ -273,6 +326,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 case 'scan':
                   context.go('/table/${widget.tableId}/scan');
                   break;
+                case 'blocked':
+                  _showBlockedUsersSheet(context);
+                  break;
                 case 'cancel':
                   _confirmCancelTable(context);
                   break;
@@ -292,6 +348,34 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 child: ListTile(
                   leading: Icon(Icons.document_scanner),
                   title: Text('Scan More Items'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem<String>(
+                value: 'blocked',
+                child: ListTile(
+                  leading: Icon(Icons.block, color: theme.colorScheme.error),
+                  title: Text('Blocked Users'),
+                  trailing: (tableData?.blockedUsers.isNotEmpty ?? false)
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.error,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '${tableData?.blockedUsers.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : null,
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -680,6 +764,581 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
+  void _showJoinRequestsSheet(
+    BuildContext context,
+    List<JoinRequest> requests,
+  ) {
+    final theme = Theme.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: theme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(Icons.person_add, color: AppColors.lushGreen),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Join Requests",
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.lushGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${requests.length}',
+                        style: TextStyle(
+                          color: AppColors.lushGreen,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: requests.length,
+                  itemBuilder: (context, index) {
+                    final request = requests[index];
+                    return _buildJoinRequestTile(context, request);
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildJoinRequestTile(BuildContext context, JoinRequest request) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.lushGreen.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: colorScheme.primary.withOpacity(0.1),
+                child: Text(
+                  request.initials,
+                  style: TextStyle(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      request.displayName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    Text(
+                      "Wants to join",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Block button
+              IconButton(
+                onPressed: () => _blockAndRejectUser(context, request),
+                icon: Icon(Icons.block, color: colorScheme.error),
+                tooltip: 'Block User',
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _respondToJoinRequest(
+                    context,
+                    request,
+                    'reject',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.error,
+                    side: BorderSide(color: colorScheme.error),
+                  ),
+                  child: const Text("Decline"),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _respondToJoinRequest(
+                    context,
+                    request,
+                    'accept',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.lushGreen,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text("Accept"),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _respondToJoinRequest(
+    BuildContext context,
+    JoinRequest request,
+    String action,
+  ) async {
+    try {
+      await ref
+          .read(joinRequestNotifierProvider(widget.tableId).notifier)
+          .respondToRequest(request.id, action);
+
+      if (mounted) {
+        Navigator.pop(context); // Close sheet
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              action == 'accept'
+                  ? '${request.displayName} joined the table!'
+                  : 'Request declined',
+            ),
+            backgroundColor:
+                action == 'accept' ? AppColors.lushGreen : null,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _blockAndRejectUser(
+    BuildContext context,
+    JoinRequest request,
+  ) async {
+    final theme = Theme.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Block User?'),
+        content: Text(
+          'Block ${request.displayName}? They won\'t be able to request to join this table again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(joinRequestNotifierProvider(widget.tableId).notifier)
+          .blockUser(request.userId);
+
+      if (mounted) {
+        Navigator.pop(context); // Close sheet
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${request.displayName} has been blocked'),
+            backgroundColor: theme.colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmRemoveParticipant(Participant participant) async {
+    final theme = Theme.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Participant?'),
+        content: Text(
+          'Remove ${participant.displayName} from the table? They will need to request to join again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Use block to remove (API removes participant when blocked)
+      await ref
+          .read(joinRequestNotifierProvider(widget.tableId).notifier)
+          .blockUser(participant.userId);
+
+      // Immediately unblock so they can request again
+      await ref
+          .read(joinRequestNotifierProvider(widget.tableId).notifier)
+          .unblockUser(participant.userId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${participant.displayName} removed from table'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _confirmBlockParticipant(Participant participant) async {
+    final theme = Theme.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Block Participant?'),
+        content: Text(
+          'Block ${participant.displayName}? They will be removed and cannot request to join this table again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+            ),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(joinRequestNotifierProvider(widget.tableId).notifier)
+          .blockUser(participant.userId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${participant.displayName} has been blocked'),
+            backgroundColor: theme.colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: theme.colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showBlockedUsersSheet(BuildContext context) {
+    final theme = Theme.of(context);
+    final tableData = ref.read(currentTableProvider).valueOrNull;
+    final blockedUsers = tableData?.blockedUsers ?? [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 0.8,
+        builder: (context, scrollController) => Container(
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: theme.dividerColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Icon(Icons.block, color: theme.colorScheme.error),
+                    const SizedBox(width: 12),
+                    Text(
+                      "Blocked Users",
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (blockedUsers.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.error.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${blockedUsers.length}',
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: blockedUsers.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.check_circle_outline,
+                              size: 48,
+                              color: theme.disabledColor,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "No blocked users",
+                              style: TextStyle(
+                                color: theme.colorScheme.onSurface.withOpacity(0.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: blockedUsers.length,
+                        itemBuilder: (context, index) {
+                          final user = blockedUsers[index];
+                          return _buildBlockedUserTile(context, user);
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBlockedUserTile(
+    BuildContext context,
+    BlockedUser user,
+  ) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.error.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: colorScheme.error.withOpacity(0.1),
+            child: Text(
+              user.initials,
+              style: TextStyle(
+                color: colorScheme.error,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              user.displayName,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _unblockUser(context, user),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.lushGreen,
+            ),
+            child: const Text('Unblock'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _unblockUser(
+    BuildContext context,
+    BlockedUser user,
+  ) async {
+    try {
+      await ref
+          .read(joinRequestNotifierProvider(widget.tableId).notifier)
+          .unblockUser(user.userId);
+
+      // Refresh table data to update blocked users list
+      await ref
+          .read(currentTableProvider.notifier)
+          .loadTable(widget.tableId, showLoading: false);
+
+      if (mounted) {
+        Navigator.pop(context); // Close sheet
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${user.displayName} has been unblocked'),
+            backgroundColor: AppColors.lushGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
   void _showParticipantsSheet(BuildContext context) {
     final tableData = ref.read(currentTableProvider).valueOrNull;
     if (tableData == null) return;
@@ -731,6 +1390,9 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                 itemBuilder: (context, index) {
                   final p = tableData.participants[index];
                   final isHostUser = p.userId == tableData.table.hostUserId;
+                  final currentUser = ref.read(currentUserProvider);
+                  final isMe = p.userId == currentUser?.id;
+
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: theme.colorScheme.primary.withOpacity(
@@ -775,7 +1437,65 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
                               ),
                             ),
                           )
-                        : null,
+                        : (isHost && !isMe)
+                            ? PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                ),
+                                onSelected: (value) {
+                                  Navigator.pop(context); // Close sheet first
+                                  switch (value) {
+                                    case 'remove':
+                                      _confirmRemoveParticipant(p);
+                                      break;
+                                    case 'block':
+                                      _confirmBlockParticipant(p);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'remove',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.person_remove,
+                                          size: 20,
+                                          color: theme.colorScheme.error,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Remove from table',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.error,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'block',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.block,
+                                          size: 20,
+                                          color: theme.colorScheme.error,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          'Block user',
+                                          style: TextStyle(
+                                            color: theme.colorScheme.error,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : null,
                   );
                 },
               ),

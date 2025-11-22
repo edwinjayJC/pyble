@@ -8,6 +8,7 @@ import '../models/table_session.dart';
 import '../models/participant.dart';
 import '../models/bill_item.dart' show BillItem, ClaimedBy;
 import '../models/split_request.dart';
+import '../models/join_request.dart';
 
 final tableRepositoryProvider = Provider<TableRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -75,17 +76,28 @@ class CurrentTableNotifier extends AsyncNotifier<TableData?> {
     }
   }
 
-  Future<void> joinTableByCode(String code) async {
+  /// Join a table by code
+  /// Returns a JoinTableResult indicating success or pending request
+  Future<JoinTableResult> joinTableByCode(String code) async {
     final repository = ref.read(tableRepositoryProvider);
     state = const AsyncValue.loading();
 
     try {
-      final table = await repository.joinTableByCode(code);
-      final tableData = TableData(table: table, participants: [], items: []);
-      state = AsyncValue.data(tableData);
-      _startPolling(table.id);
+      final result = await repository.joinTableByCode(code);
+
+      if (result.isSuccess && result.table != null) {
+        final tableData = TableData(table: result.table!, participants: [], items: []);
+        state = AsyncValue.data(tableData);
+        _startPolling(result.table!.id);
+      } else {
+        // Request is pending, clear the loading state
+        state = const AsyncValue.data(null);
+      }
+
+      return result;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 
@@ -540,3 +552,87 @@ final pendingSplitRequestsCountProvider =
       final requestsAsync = ref.watch(pendingSplitRequestsProvider(tableId));
       return requestsAsync.whenData((requests) => requests.length);
     });
+
+// Provider to fetch pending join requests for the host
+final pendingJoinRequestsProvider =
+    FutureProvider.family<List<JoinRequest>, String>((ref, tableId) async {
+      final repository = ref.watch(tableRepositoryProvider);
+      return await repository.getJoinRequests(tableId);
+    });
+
+// Provider to get the count of pending join requests
+final pendingJoinRequestsCountProvider =
+    Provider.family<AsyncValue<int>, String>((ref, tableId) {
+      final requestsAsync = ref.watch(pendingJoinRequestsProvider(tableId));
+      return requestsAsync.whenData((requests) => requests.length);
+    });
+
+// Notifier for managing join requests
+class JoinRequestNotifier extends StateNotifier<AsyncValue<void>> {
+  final Ref ref;
+  final String tableId;
+
+  JoinRequestNotifier(this.ref, this.tableId) : super(const AsyncValue.data(null));
+
+  Future<void> respondToRequest(String requestId, String action) async {
+    final repository = ref.read(tableRepositoryProvider);
+    state = const AsyncValue.loading();
+
+    try {
+      await repository.respondToJoinRequest(
+        tableId: tableId,
+        requestId: requestId,
+        action: action,
+      );
+
+      // Refresh the join requests and table data
+      ref.invalidate(pendingJoinRequestsProvider(tableId));
+
+      // If accepted, refresh table data to show new participant
+      if (action == 'accept') {
+        await ref.read(currentTableProvider.notifier).loadTable(tableId, showLoading: false);
+      }
+
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> blockUser(String userId) async {
+    final repository = ref.read(tableRepositoryProvider);
+    state = const AsyncValue.loading();
+
+    try {
+      await repository.blockUser(tableId: tableId, userId: userId);
+
+      // Refresh data
+      ref.invalidate(pendingJoinRequestsProvider(tableId));
+      await ref.read(currentTableProvider.notifier).loadTable(tableId, showLoading: false);
+
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+
+  Future<void> unblockUser(String userId) async {
+    final repository = ref.read(tableRepositoryProvider);
+    state = const AsyncValue.loading();
+
+    try {
+      await repository.unblockUser(tableId: tableId, userId: userId);
+      state = const AsyncValue.data(null);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
+}
+
+final joinRequestNotifierProvider =
+    StateNotifierProvider.family<JoinRequestNotifier, AsyncValue<void>, String>(
+      (ref, tableId) => JoinRequestNotifier(ref, tableId),
+    );

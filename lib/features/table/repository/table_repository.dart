@@ -5,11 +5,32 @@ import '../models/table_session.dart';
 import '../models/participant.dart';
 import '../models/bill_item.dart';
 import '../models/split_request.dart';
+import '../models/join_request.dart';
+import '../models/blocked_user.dart';
+
+/// Result of attempting to join a table
+class JoinTableResult {
+  final TableSession? table;
+  final bool requestPending;
+  final String? requestId;
+  final String? message;
+
+  const JoinTableResult({
+    this.table,
+    this.requestPending = false,
+    this.requestId,
+    this.message,
+  });
+
+  bool get isSuccess => table != null;
+  bool get isPending => requestPending;
+}
 
 class TableData {
   final TableSession table;
   final List<Participant> participants;
   final List<BillItem> items;
+  final List<BlockedUser> blockedUsers;
   final double subTotal;
   final double tax;
   final double tip;
@@ -21,6 +42,7 @@ class TableData {
     required this.table,
     required this.participants,
     required this.items,
+    this.blockedUsers = const [],
     this.subTotal = 0.0,
     this.tax = 0.0,
     this.tip = 0.0,
@@ -41,11 +63,17 @@ class TableData {
             ?.map((e) => BillItem.fromJson(e as Map<String, dynamic>))
             .toList() ??
         [];
+    final blockedUsersList =
+        (json['blockedUsers'] as List<dynamic>?)
+            ?.map((e) => BlockedUser.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        [];
 
     return TableData(
       table: TableSession.fromJson(tableJson),
       participants: participantsList,
       items: itemsList,
+      blockedUsers: blockedUsersList,
       subTotal: (json['subTotal'] as num?)?.toDouble() ?? 0.0,
       tax: (json['tax'] as num?)?.toDouble() ?? 0.0,
       tip: (json['tip'] as num?)?.toDouble() ?? 0.0,
@@ -68,6 +96,7 @@ class TableData {
       ),
       participants: [],
       items: [],
+      blockedUsers: [],
       totalBillAmountZar: 0.0,
       totalTipAmountZar: 0.0,
       restaurantTotalDueZar: 0.0,
@@ -78,6 +107,7 @@ class TableData {
     TableSession? table,
     List<Participant>? participants,
     List<BillItem>? items,
+    List<BlockedUser>? blockedUsers,
     double? subTotal,
     double? tax,
     double? tip,
@@ -89,6 +119,7 @@ class TableData {
       table: table ?? this.table,
       participants: participants ?? this.participants,
       items: items ?? this.items,
+      blockedUsers: blockedUsers ?? this.blockedUsers,
       subTotal: subTotal ?? this.subTotal,
       tax: tax ?? this.tax,
       tip: tip ?? this.tip,
@@ -165,15 +196,43 @@ class TableRepository {
     );
   }
 
-  Future<TableSession> joinTableByCode(String code) async {
-    return await apiClient.post(
-      '/tables/$code/join',
-      parser: (data) {
-        // API returns { "table": SplitTable, "signalRNegotiationPayload": {...} }
-        final tableData = data['table'] as Map<String, dynamic>;
-        return TableSession.fromJson(tableData);
-      },
-    );
+  Future<JoinTableResult> joinTableByCode(String code) async {
+    try {
+      return await apiClient.post(
+        '/tables/$code/join',
+        parser: (data) {
+          // Check if this is a pending request response (202)
+          if (data['requestPending'] == true) {
+            return JoinTableResult(
+              requestPending: true,
+              requestId: data['requestId'] as String?,
+              message: data['message'] as String?,
+            );
+          }
+          // API returns { "table": SplitTable, "signalRNegotiationPayload": {...} }
+          final tableData = data['table'] as Map<String, dynamic>;
+          return JoinTableResult(
+            table: TableSession.fromJson(tableData),
+          );
+        },
+      );
+    } on ApiException catch (e) {
+      // Handle 202 Accepted (join request pending)
+      if (e.statusCode == 202) {
+        return JoinTableResult(
+          requestPending: true,
+          message: e.message,
+        );
+      }
+      // Handle 409 Conflict (already pending)
+      if (e.statusCode == 409 && e.message.contains('pending')) {
+        return JoinTableResult(
+          requestPending: true,
+          message: e.message,
+        );
+      }
+      rethrow;
+    }
   }
 
   Future<BillItem> addItem({
@@ -358,6 +417,62 @@ class TableRepository {
         final request = data['request'] as Map<String, dynamic>;
         return SplitRequest.fromJson(request);
       },
+    );
+  }
+
+  // Join Request methods (for non-friends requesting to join)
+
+  /// Get pending join requests for a table (host only)
+  Future<List<JoinRequest>> getJoinRequests(String tableId) async {
+    return await apiClient.get(
+      '/tables/$tableId/join-requests',
+      parser: (data) {
+        if (data == null) return [];
+        final requests = data as List<dynamic>;
+        return requests
+            .map((e) => JoinRequest.fromJson(e as Map<String, dynamic>))
+            .toList();
+      },
+    );
+  }
+
+  /// Host responds to a join request (accept or reject)
+  Future<JoinRequest> respondToJoinRequest({
+    required String tableId,
+    required String requestId,
+    required String action, // "accept" or "reject"
+  }) async {
+    return await apiClient.put(
+      '/tables/$tableId/join-requests/$requestId',
+      body: {'action': action},
+      parser: (data) {
+        final request = data['request'] as Map<String, dynamic>;
+        return JoinRequest.fromJson(request);
+      },
+    );
+  }
+
+  // Block/Unblock methods
+
+  /// Block a user from the table (host only)
+  Future<void> blockUser({
+    required String tableId,
+    required String userId,
+  }) async {
+    await apiClient.put(
+      '/tables/$tableId/block/$userId',
+      parser: (_) {},
+    );
+  }
+
+  /// Unblock a user from the table (host only)
+  Future<void> unblockUser({
+    required String tableId,
+    required String userId,
+  }) async {
+    await apiClient.delete(
+      '/tables/$tableId/block/$userId',
+      parser: (_) {},
     );
   }
 }
