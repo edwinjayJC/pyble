@@ -331,7 +331,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
 
   Future<bool> _confirmRemoveFriend(BuildContext context, Friend friend) async {
     final theme = Theme.of(context);
-    return await showDialog<bool>(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Remove Friend?'),
@@ -347,9 +347,18 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen>
       ),
     ) ?? false;
 
-    // Note: Actual removal logic needs to happen in onDismissed if using Dismissible,
-    // but for async consistency we usually handle the API call here or in onDismissed callback.
-    // Since Dismissible expects immediate UI removal, we'd call the provider here.
+    if (!confirmed) return false;
+
+    // Actually remove the friend via API
+    try {
+      await ref.read(friendsListProvider.notifier).removeFriend(friend.userId);
+      return true;
+    } catch (e) {
+      if (context.mounted) {
+        _showError(context, e);
+      }
+      return false;
+    }
   }
 
   Future<void> _acceptRequest(BuildContext context, FriendRequest request) async {
