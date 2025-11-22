@@ -54,8 +54,6 @@ class FriendsRepository {
   }
 
   /// Get the current user's friends list
-  /// Note: This endpoint needs to be added to the backend API
-  /// For now, we'll assume it returns the friends array from the user profile
   Future<List<Friend>> getFriendsList() async {
     final response = await _apiClient.get<Map<String, dynamic>>(
       '/profiles/me',

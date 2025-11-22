@@ -17,7 +17,9 @@ class Friend {
     return Friend(
       userId: json['userId'] as String,
       isAuto: json['isAuto'] as bool? ?? false,
-      addedAt: DateTime.parse(json['addedAt'] as String),
+      addedAt: json['addedAt'] != null
+          ? DateTime.parse(json['addedAt'] as String)
+          : DateTime.now(),
       displayName: json['displayName'] as String,
       avatarUrl: json['avatarUrl'] as String?,
     );
