@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/friend.dart';
 import '../models/friend_request.dart';
 import '../repository/friends_repository.dart';
+
+/// Polling interval for friends data
+const _pollInterval = Duration(seconds: 10);
 
 /// Provider for the list of friends
 final friendsListProvider =
@@ -10,9 +14,38 @@ final friendsListProvider =
 );
 
 class FriendsListNotifier extends AsyncNotifier<List<Friend>> {
+  Timer? _pollTimer;
+
   @override
   Future<List<Friend>> build() async {
+    // Start polling when provider is built
+    _startPolling();
+
+    // Cancel timer when provider is disposed
+    ref.onDispose(() {
+      _pollTimer?.cancel();
+    });
+
     return _fetchFriends();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) {
+      _pollFriends();
+    });
+  }
+
+  Future<void> _pollFriends() async {
+    // Only poll if we have data (not loading or error)
+    if (state.hasValue) {
+      try {
+        final friends = await _fetchFriends();
+        state = AsyncValue.data(friends);
+      } catch (e) {
+        // Silently fail on poll errors to avoid disrupting UI
+      }
+    }
   }
 
   Future<List<Friend>> _fetchFriends() async {
@@ -45,9 +78,38 @@ final friendRequestsProvider =
 );
 
 class FriendRequestsNotifier extends AsyncNotifier<List<FriendRequest>> {
+  Timer? _pollTimer;
+
   @override
   Future<List<FriendRequest>> build() async {
+    // Start polling when provider is built
+    _startPolling();
+
+    // Cancel timer when provider is disposed
+    ref.onDispose(() {
+      _pollTimer?.cancel();
+    });
+
     return _fetchRequests();
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) {
+      _pollRequests();
+    });
+  }
+
+  Future<void> _pollRequests() async {
+    // Only poll if we have data (not loading or error)
+    if (state.hasValue) {
+      try {
+        final requests = await _fetchRequests();
+        state = AsyncValue.data(requests);
+      } catch (e) {
+        // Silently fail on poll errors to avoid disrupting UI
+      }
+    }
   }
 
   Future<List<FriendRequest>> _fetchRequests() async {
