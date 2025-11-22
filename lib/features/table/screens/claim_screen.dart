@@ -1013,6 +1013,12 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     if (confirmed != true) return;
 
     try {
+      // First reject the request to clear it from the list
+      await ref
+          .read(joinRequestNotifierProvider(widget.tableId).notifier)
+          .respondToRequest(request.id, 'reject');
+
+      // Then block the user to prevent future requests
       await ref
           .read(joinRequestNotifierProvider(widget.tableId).notifier)
           .blockUser(request.userId);

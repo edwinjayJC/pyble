@@ -588,10 +588,8 @@ class JoinRequestNotifier extends StateNotifier<AsyncValue<void>> {
       // Refresh the join requests and table data
       ref.invalidate(pendingJoinRequestsProvider(tableId));
 
-      // If accepted, refresh table data to show new participant
-      if (action == 'accept') {
-        await ref.read(currentTableProvider.notifier).loadTable(tableId, showLoading: false);
-      }
+      // Always refresh table data to update UI (participants for accept, blocked users for reject)
+      await ref.read(currentTableProvider.notifier).loadTable(tableId, showLoading: false);
 
       state = const AsyncValue.data(null);
     } catch (e, st) {
