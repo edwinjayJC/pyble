@@ -32,6 +32,8 @@ class ClaimScreen extends ConsumerStatefulWidget {
 }
 
 class _ClaimScreenState extends ConsumerState<ClaimScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -44,6 +46,12 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
         ref.read(currentTableProvider.notifier).loadTable(widget.tableId);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -109,31 +117,41 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
             0.0,
             (sum, item) => sum + item.price,
           );
+          final filteredItems = tableData.items.isEmpty
+              ? <({BillItem item, int displayIndex})>[]
+              : _filterItemsWithIndex(tableData.items);
 
           return Column(
             children: [
+              if (tableData.items.isNotEmpty) _buildSearchBar(context),
               Expanded(
                 child: tableData.items.isEmpty
                     ? _buildEmptyState(context, isHost)
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(
-                          top: AppSpacing.sm,
-                          bottom: AppSpacing.xl,
-                        ),
-                        itemCount: tableData.items.length,
-                        itemBuilder: (context, index) {
-                          final item = tableData.items[index];
-                          return BillItemRow(
-                            item: item,
-                            participants: tableData.participants,
-                            currentUserId: currentUser?.id,
-                            isHost: isHost,
-                            onClaimToggle: () => _handleClaimToggle(item.id),
-                            onSplit: () =>
-                                _showSplitSheet(item, tableData.participants),
-                          );
-                        },
-                      ),
+                    : filteredItems.isEmpty
+                        ? _buildNoResultsState(context)
+                        : ListView.builder(
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.sm,
+                              bottom: AppSpacing.xl,
+                            ),
+                            itemCount: filteredItems.length,
+                            itemBuilder: (context, index) {
+                              final entry = filteredItems[index];
+                              final item = entry.item;
+                              return BillItemRow(
+                                item: item,
+                                displayIndex: entry.displayIndex,
+                                participants: tableData.participants,
+                                currentUserId: currentUser?.id,
+                                isHost: isHost,
+                                onClaimToggle: () => _handleClaimToggle(item.id),
+                                onSplit: () => _showSplitSheet(
+                                  item,
+                                  tableData.participants,
+                                ),
+                              );
+                            },
+                          ),
               ),
               _buildStickyFooter(
                 context,
@@ -397,6 +415,57 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
     );
   }
 
+  Widget _buildSearchBar(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xs,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: SizedBox(
+            width: double.infinity,
+            child: TextField(
+              controller: _searchController,
+              onChanged: _onSearchChanged,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: 'Search by item # or name',
+                prefixIcon: Icon(Icons.search, color: theme.hintColor),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close),
+                        tooltip: 'Clear search',
+                        onPressed: _clearSearch,
+                      )
+                    : null,
+                filled: true,
+                fillColor: theme.colorScheme.surface,
+                border: OutlineInputBorder(
+                  borderRadius: AppRadius.allMd,
+                  borderSide: BorderSide(color: theme.dividerColor),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: AppRadius.allMd,
+                  borderSide: BorderSide(color: theme.dividerColor),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: AppRadius.allMd,
+                  borderSide: BorderSide(color: theme.colorScheme.primary),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context, bool isHost) {
     final theme = Theme.of(context);
     return Center(
@@ -417,6 +486,34 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
               onPressed: () => context.go('/table/${widget.tableId}/scan'),
               icon: const Icon(Icons.camera_alt),
               label: const Text("Scan Bill"),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoResultsState(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 48, color: theme.disabledColor),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            "No items match your search",
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (_searchQuery.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.sm),
+            TextButton.icon(
+              onPressed: _clearSearch,
+              icon: const Icon(Icons.close),
+              label: const Text("Clear search"),
             ),
           ],
         ],
@@ -591,6 +688,53 @@ class _ClaimScreenState extends ConsumerState<ClaimScreen> {
   }
 
   // === LOGIC ===
+
+  List<({BillItem item, int displayIndex})> _filterItemsWithIndex(
+    List<BillItem> items,
+  ) {
+    final query = _searchQuery.trim();
+    if (query.isEmpty) {
+      return items.asMap().entries
+          .map(
+            (entry) => (item: entry.value, displayIndex: entry.key + 1),
+          )
+          .toList();
+    }
+
+    final normalizedQuery = query.toLowerCase();
+    final numericPortion = normalizedQuery.startsWith('#')
+        ? normalizedQuery.substring(1)
+        : normalizedQuery;
+    final parsedIndex = int.tryParse(numericPortion);
+
+    return items.asMap().entries
+        .where((entry) {
+          final displayIndex = entry.key + 1;
+          final matchesIndex =
+              parsedIndex != null && displayIndex == parsedIndex;
+          final matchesDescription = entry.value.description
+              .toLowerCase()
+              .contains(normalizedQuery);
+          return matchesIndex || matchesDescription;
+        })
+        .map(
+          (entry) => (item: entry.value, displayIndex: entry.key + 1),
+        )
+        .toList();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() {
+      _searchQuery = value;
+    });
+  }
+
+  void _clearSearch() {
+    setState(() {
+      _searchQuery = '';
+      _searchController.clear();
+    });
+  }
 
   void _handleClaimToggle(String itemId) {
     ref.read(currentTableProvider.notifier).claimItem(itemId);

@@ -15,6 +15,7 @@ class BillItemRow extends StatelessWidget {
   final List<Participant> participants;
   final String? currentUserId;
   final bool isHost;
+  final int? displayIndex;
 
   final VoidCallback? onClaimToggle;
   final VoidCallback? onSplit;
@@ -25,6 +26,7 @@ class BillItemRow extends StatelessWidget {
     required this.participants,
     this.currentUserId,
     this.isHost = false,
+    this.displayIndex,
     this.onClaimToggle,
     this.onSplit,
   });
@@ -58,6 +60,29 @@ class BillItemRow extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (displayIndex != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(right: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: colorScheme.primary.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Text(
+                      '#$displayIndex',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                ],
                 // 1. Item Details (Left Side)
                 Expanded(
                   child: Column(
