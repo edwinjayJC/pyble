@@ -211,21 +211,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       pinned: true,
       backgroundColor: AppColors.deepBerry, // Keep Brand Color Fixed
       elevation: 0,
-      flexibleSpace: FlexibleSpaceBar(
-        titlePadding: const EdgeInsets.only(left: 60, bottom: 14),
-        title: const Text(
-          'pyble',
-          style: TextStyle(
-            fontFamily: 'Quip',
-            fontWeight: FontWeight.normal,
-            letterSpacing: 1.5,
-            color: AppColors.snow,
-            fontSize: 32,
-            shadows: [
-              Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
-            ],
-          ),
+      centerTitle: true,
+      title: const Text(
+        'pyble',
+        style: TextStyle(
+          fontFamily: 'Quip',
+          fontWeight: FontWeight.normal,
+          letterSpacing: 1.5,
+          color: AppColors.snow,
+          fontSize: 28,
+          shadows: [
+            Shadow(offset: Offset(0, 2), blurRadius: 4, color: Colors.black26),
+          ],
         ),
+      ),
+      flexibleSpace: FlexibleSpaceBar(
+        centerTitle: true,
+        titlePadding: EdgeInsets.zero,
         background: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
